@@ -5,16 +5,63 @@
 
 typedef struct
 {
+    SDL_Window *Window;
     SDL_Renderer *Renderer;
+
     SDL_Texture *CardsTexture;
     SDL_Rect CardsTextureSize;
 
 } GameState;
 
+int 
+HandleEvent(SDL_Event *Event)
+{
+    int ShouldQuit = 0;
+
+    switch(Event->type)
+    {
+        case SDL_QUIT:
+        {
+            printf("SDL_QUIT\n");
+            ShouldQuit = 1;
+        } break;
+
+        case SDL_KEYDOWN:
+        case SDL_KEYUP:
+        {
+            SDL_Keycode KeyCode = Event->key.keysym.sym;
+            int WasDown = 0;
+            if (Event->key.state == SDL_RELEASED)
+            {
+                WasDown = 1;
+            }
+            else if (Event->key.repeat != 0)
+            {
+                WasDown = 1;
+            }
+
+            if(KeyCode == SDLK_w)
+            {
+                printf("W\n");
+            }
+
+        } break;
+    }
+
+    return(ShouldQuit);
+}
+
 void
 Update(void *Argument)
 {
     GameState *State = Argument;
+
+    SDL_Event Event;
+    while (SDL_PollEvent(&Event)) 
+    {
+        HandleEvent(&Event);
+    }
+
 
     SDL_RenderClear(State->Renderer);
     SDL_RenderCopy(State->Renderer, State->CardsTexture, NULL, &State->CardsTextureSize);
@@ -24,12 +71,11 @@ Update(void *Argument)
 int 
 main()
 {
-    SDL_Window *Window;
     GameState State = {};
 
     SDL_Init(SDL_INIT_VIDEO);
-    IMG_Init(IMG_INIT_PNG);
-    SDL_CreateWindowAndRenderer(600, 400, 0, &Window, &State.Renderer);
+
+    SDL_CreateWindowAndRenderer(512, 512, 0, &State.Window, &State.Renderer);
     SDL_SetRenderDrawColor(State.Renderer, 255, 255, 255, 255);
 
     {
