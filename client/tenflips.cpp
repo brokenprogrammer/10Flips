@@ -3,15 +3,22 @@
 #include <SDL2/SDL_image.h>
 #include <emscripten.h>
 
-typedef struct
+#define STN_NO_SSE
+#define STN_USE_MATH
+#define STN_USE_STRING
+#include "stn.h"
+
+struct game_state
 {
     SDL_Window *Window;
     SDL_Renderer *Renderer;
 
+
+    
     SDL_Texture *CardsTexture;
     SDL_Rect CardsTextureSize;
 
-} GameState;
+};
 
 int 
 HandleEvent(SDL_Event *Event)
@@ -54,7 +61,7 @@ HandleEvent(SDL_Event *Event)
 void
 Update(void *Argument)
 {
-    GameState *State = Argument;
+    game_state *State = (game_state *)Argument;
 
     SDL_Event Event;
     while (SDL_PollEvent(&Event)) 
@@ -71,7 +78,7 @@ Update(void *Argument)
 int 
 main()
 {
-    GameState State = {};
+    game_state State = {};
 
     SDL_Init(SDL_INIT_VIDEO);
 
