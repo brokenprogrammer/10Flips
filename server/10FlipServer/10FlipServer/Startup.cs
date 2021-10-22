@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading.Tasks;
+using _10FlipServer.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -19,6 +20,9 @@ namespace _10FlipServer
 {
     public class Startup
     {
+
+        private Dictionary<string, Room> rooms = new Dictionary<string, Room>();
+
         public Startup(IConfiguration configuration)
         {
             Configuration = configuration;
@@ -26,13 +30,11 @@ namespace _10FlipServer
 
         public IConfiguration Configuration { get; }
 
-        // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_1);
         }
 
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IHostingEnvironment env)
         {
             if (env.IsDevelopment())
@@ -51,37 +53,105 @@ namespace _10FlipServer
             app.UseWebSockets(wsOptions);
             app.Use(async (context, next) =>
             {
-                if (context.Request.Path == "/send")
+                if (context.WebSockets.IsWebSocketRequest)
                 {
-                    if (context.WebSockets.IsWebSocketRequest)
+                    using (WebSocket webSocket = await context.WebSockets.AcceptWebSocketAsync())
                     {
-                        using(WebSocket webSocket = await context.WebSockets.AcceptWebSocketAsync())
+                        if (context.Request.Path == "/game")
                         {
-                            await Send(context, webSocket);
-                        }
-                    } else
-                    {
-                        context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                            await GetMessage(context, webSocket);
+                        }   
                     }
+                }
+                else
+                {
+                    context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
                 }
             });
         }
 
-        private async Task Send(HttpContext context, WebSocket webSocket)
+        private async Task GetMessage(HttpContext context, WebSocket webSocket)
         {
             var buffer = new byte[1024 * 4];
             WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), System.Threading.CancellationToken.None);
             if (result != null)
             {
-                while(!result.CloseStatus.HasValue)
+                while (!result.CloseStatus.HasValue)
                 {
                     string msg = Encoding.UTF8.GetString(new ArraySegment<byte>(buffer, 0, result.Count));
+
                     Console.WriteLine($"client says: {msg}");
-                    await webSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes($"Server says: {msg}")), result.MessageType, result.EndOfMessage, System.Threading.CancellationToken.None);
+
+                    string responseMsg = "";
+
+                    if (msg == "lobby")
+                    {
+                        foreach (var key in rooms.Keys.AsQueryable())
+                        {
+                            responseMsg += (key + ",");
+                        }
+                        if (rooms.Keys.AsQueryable().Count() > 0)
+                        {
+                            responseMsg = responseMsg.Remove(responseMsg.Length - 1);
+                        }
+                    }
+                    else if (msg.Contains("create:"))
+                    {
+                        string[] parts = msg.Split("create:");
+                        if (parts.Length == 2)
+                        {
+                            string name = parts[1];
+                            responseMsg = await StartNewGame(name);
+                        }
+                    }
+                    else if (msg.Contains("connect:"))
+                    {
+                        string[] parts = msg.Split("connect:");
+                        if (parts.Length == 2)
+                        {
+                            string token = parts[1];
+                            bool success = await ConnectToGame(token);
+                            if (success)
+                            {
+                                responseMsg = "Game state"; // TODO(Jesper): Implement game state.
+                            } else
+                            {
+                                responseMsg = "Failed";
+                            }
+                        }
+                    }
+
+                    // NOTE(Jesper): Send response
+                    await webSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(responseMsg)), result.MessageType, result.EndOfMessage, System.Threading.CancellationToken.None);
                     result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), System.Threading.CancellationToken.None);
                 }
             }
             await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, System.Threading.CancellationToken.None);
+        }
+
+        private async Task<bool> ConnectToGame(string token)
+        {
+            Room room = rooms.GetValueOrDefault(token);
+            if (room != null && room.UserCount < room.MaxUsers)
+            {
+                string name = "Player " + (room.UserCount + 1);
+                User user = new User(name);
+                room.Users.Add(user);
+                return true;
+            }
+            return false;
+        }
+
+        private async Task<string> StartNewGame(string name)
+        {
+            if (rooms.Count < 25)
+            {
+                string token = Guid.NewGuid().ToString();
+                Room room = new Room(name);
+                rooms.Add(token, room);
+                return token;
+            }
+            return null;
         }
     }
 }
