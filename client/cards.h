@@ -1,5 +1,6 @@
 vector4 CardTextureOffset[] =
 {
+    { 0, 0, 0, 0},
     { 35 * 1,  47 * 0, 35, 47 },
     { 35 * 2,  47 * 0, 35, 47 },
     { 35 * 3,  47 * 0, 35, 47 },
@@ -61,7 +62,8 @@ vector4 CardTextureOffset[] =
 
 enum card_type
 {
-    TWO_OF_HEARTS = 0,
+    CARD_TYPE_NULL = 0,
+    TWO_OF_HEARTS = 1,
     THREE_OF_HEARTS,
     FOUR_OF_HEARTS,
     FIVE_OF_HEARTS,

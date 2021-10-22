@@ -114,6 +114,11 @@ UpdateAndRenderLobby(game_state *State)
         if (ImGui::Button("Start Game"))
         {
             // TODO(Oskar): Join game
+            State->IsInMenu = false;
+            State->IsCreatingGame = false;
+            State->HasCreatedGame = false;
+            State->IsInLobby = false;
+            State->IsPlaying = true;
         }
     }
     ImGui::EndGroup();

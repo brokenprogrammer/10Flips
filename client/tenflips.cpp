@@ -24,17 +24,52 @@
 #include "assets.cpp"
 #include "renderer.cpp"
 
+struct player
+{
+    char *Name;
+    card_type Hand[52];
+    u32 NumberOfCards;
+
+    card_type TopCards[3];
+    card_type BottomCards[3];
+};
+
+struct opponent
+{
+    char *Name;
+
+    u32 NumberOfCards;
+
+    card_type TopCards[3];
+    card_type BottomCards[3];
+};
+
+struct game
+{
+    char *Name;
+    opponent Opponents[3];
+    u32 OpponentCount;
+
+    card_type TopCard;
+
+    player Player;
+};
+
 struct game_state
 {
     u32 WindowID;
     SDL_Window *Window;
     SDL_GLContext GLContext;
 
+    // NOTE(Oskar): Game State
     bool IsInMenu;
     bool IsCreatingGame;
     bool IsInLobby;
     bool HasCreatedGame;
     bool IsPlaying;
+
+    game CurrentGame;
+
 
     // NOTE(Oskar): Rendering
     renderer Renderer;
@@ -43,13 +78,7 @@ struct game_state
 };
 
 #include "ui.cpp"
-
-STN_INTERNAL void
-DrawCard(renderer *Renderer, texture *Texture, card_type Type, vector4 Destination)
-{
-    vector4 Source = CardTextureOffset[Type];
-    PushTexture(Renderer, Texture, Source, Destination);
-}
+#include "game.cpp"
 
 u32 Type = 0;
 
@@ -115,9 +144,7 @@ Update(void *Argument)
     
     if (State->IsPlaying)
     {
-        vector4 Destination = Vector4Init(0.0f, 0.0f, 100.0f, 150.0f);
-        DrawCard(&State->Renderer, &State->Cards, (card_type)Type, Destination);
-        EndFrame(&State->Renderer, &State->Cards);
+        UpdateAndRenderGame(State, io);
     }
 
     SDL_GL_SwapWindow(State->Window);
