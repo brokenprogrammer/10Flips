@@ -14,6 +14,7 @@
 
 #include "assets.h"
 #include "renderer.h"
+#include "cards.h"
 
 #include "shader.cpp"
 #include "assets.cpp"
@@ -77,6 +78,15 @@ HandleEvent(SDL_Event *Event)
     return(ShouldQuit);
 }
 
+STN_INTERNAL void
+DrawCard(renderer *Renderer, texture *Texture, card_type Type, vector4 Destination)
+{
+    vector4 Source = CardTextureOffset[Type];
+    PushTexture(Renderer, Texture, Source, Destination);
+}
+
+u32 Type = 0;
+
 void
 Update(void *Argument)
 {
@@ -92,13 +102,13 @@ Update(void *Argument)
 
     // Draw here
     BeginFrame(&State->Renderer);
-    vector4 Source = Vector4Init(0, 0, 35, 47);
     vector4 Destination = Vector4Init(0.0f, 0.0f, 100.0f, 150.0f);
-    PushTexture(&State->Renderer, &State->Cards, Source, Destination);
+    DrawCard(&State->Renderer, &State->Cards, ACE_OF_SPADES, Destination);
 
-    Source = Vector4Init(35, 0, 35, 47);
+
     Destination = Vector4Init(105.0f, 0.0f, 100.0f, 150.0f);
-    PushTexture(&State->Renderer, &State->Cards, Source, Destination);
+    DrawCard(&State->Renderer, &State->Cards, KING_OF_CLUBS, Destination);
+
     EndFrame(&State->Renderer, &State->Cards);
 
     SDL_GL_SwapWindow(State->Window);
