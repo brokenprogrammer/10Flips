@@ -1,6 +1,7 @@
 #define CARD_WIDTH 50.0f
 #define CARD_HEIGHT 100.0f
 
+// TODO(Oskar): Get this from the current game.
 static player TestPlayer = {};
 static u32 OpponentCount = 3;
 
@@ -129,7 +130,7 @@ UpdateAndRenderGame(game_state *State, ImGuiIO& io)
         }
         else if (OpponentIndex == 1) // Left Player
         {
-            f32 CardStartX = 0;
+            f32 CardStartX = CARD_WIDTH;
             f32 CardStartY = (WINDOW_HEIGHT / 2.0f) - (Opponents[OpponentIndex].NumberOfCards / 2) * CARD_WIDTH;
 
             // NOTE(Oskar): Render hand
@@ -145,7 +146,7 @@ UpdateAndRenderGame(game_state *State, ImGuiIO& io)
             // NOTE(Oskar): Render top and bottom cards
             for (u32 Index = 0; Index < 3; ++Index)
             {
-                vector4 Destination = Vector4Init(CARD_HEIGHT, CardStartY, CARD_WIDTH, CARD_HEIGHT);
+                vector4 Destination = Vector4Init(CARD_WIDTH + CARD_HEIGHT, CardStartY, CARD_WIDTH, CARD_HEIGHT);
                 
                 if (TestPlayer.BottomCards[Index] != CARD_TYPE_NULL)
                 {
@@ -161,7 +162,7 @@ UpdateAndRenderGame(game_state *State, ImGuiIO& io)
         }
         else if (OpponentIndex == 2) // Right player
         {
-            f32 CardStartX = WINDOW_WIDTH - CARD_HEIGHT;;
+            f32 CardStartX = WINDOW_WIDTH - CARD_HEIGHT;
             f32 CardStartY = (WINDOW_HEIGHT / 2.0f) - (Opponents[OpponentIndex].NumberOfCards / 2) * CARD_WIDTH;
 
             // NOTE(Oskar): Render hand
