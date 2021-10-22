@@ -5,10 +5,12 @@ using System.Threading.Tasks;
 
 namespace _10FlipServer.Models
 {
-    public class Room
+    public class Game
     {
         public string Name;
         public List<User> Users;
+        public string AdminToken;
+        public bool Started;
         public int MaxUsers;
         public int UserCount
         {
@@ -18,11 +20,12 @@ namespace _10FlipServer.Models
             }
         }
 
-        public Room(string name)
+        public Game(string name)
         {
             this.Name = name;
             Users = new List<User>();
             MaxUsers = 4;
+            Started = false;
         }
     }
 }

@@ -21,7 +21,7 @@ namespace _10FlipServer
     public class Startup
     {
 
-        private Dictionary<string, Room> rooms = new Dictionary<string, Room>();
+        private Dictionary<string, Game> games = new Dictionary<string, Game>();
 
         public Startup(IConfiguration configuration)
         {
@@ -86,11 +86,11 @@ namespace _10FlipServer
 
                     if (msg == "lobby")
                     {
-                        foreach (var key in rooms.Keys.AsQueryable())
+                        foreach (var key in games.Keys.AsQueryable())
                         {
                             responseMsg += (key + ",");
                         }
-                        if (rooms.Keys.AsQueryable().Count() > 0)
+                        if (games.Keys.AsQueryable().Count() > 0)
                         {
                             responseMsg = responseMsg.Remove(responseMsg.Length - 1);
                         }
@@ -101,7 +101,7 @@ namespace _10FlipServer
                         if (parts.Length == 2)
                         {
                             string name = parts[1];
-                            responseMsg = await StartNewGame(name);
+                            responseMsg = await CreateNewGame(name, webSocket); // "{gameToken},{adminToken}"
                         }
                     }
                     else if (msg.Contains("connect:"))
@@ -110,7 +110,7 @@ namespace _10FlipServer
                         if (parts.Length == 2)
                         {
                             string token = parts[1];
-                            bool success = await ConnectToGame(token);
+                            bool success = await ConnectToGame(token, webSocket);
                             if (success)
                             {
                                 responseMsg = "Game state"; // TODO(Jesper): Implement game state.
@@ -120,6 +120,20 @@ namespace _10FlipServer
                             }
                         }
                     }
+                    else if (msg.Contains("start:"))
+                    {
+                        string[] parts = msg.Split("start:");
+                        if (parts.Length == 2)
+                        {
+                            string[] tokens = parts[1].Split(","); // "{gameToken},{adminToken}"
+                            if (tokens.Length == 2)
+                            {
+                                await StartGame(tokens[0], tokens[1]);
+                            }
+                        }
+                    }
+
+                    // TODO(Jesper): Send to game connected users.
 
                     // NOTE(Jesper): Send response
                     await webSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(responseMsg)), result.MessageType, result.EndOfMessage, System.Threading.CancellationToken.None);
@@ -129,29 +143,50 @@ namespace _10FlipServer
             await webSocket.CloseAsync(result.CloseStatus.Value, result.CloseStatusDescription, System.Threading.CancellationToken.None);
         }
 
-        private async Task<bool> ConnectToGame(string token)
+        private async Task<bool> ConnectToGame(string token, WebSocket socket)
         {
-            Room room = rooms.GetValueOrDefault(token);
-            if (room != null && room.UserCount < room.MaxUsers)
+            // TODO(Jesper): Save web socket connection.
+
+            Game game = games.GetValueOrDefault(token);
+            if (game != null && game.UserCount < game.MaxUsers)
             {
-                string name = "Player " + (room.UserCount + 1);
+                string name = "Player " + (game.UserCount + 1);
                 User user = new User(name);
-                room.Users.Add(user);
+                user.Socket = socket;
+                game.Users.Add(user);
                 return true;
             }
             return false;
         }
 
-        private async Task<string> StartNewGame(string name)
+        private async Task<string> CreateNewGame(string name, WebSocket socket)
         {
-            if (rooms.Count < 25)
+            if (games.Count < 25)
             {
-                string token = Guid.NewGuid().ToString();
-                Room room = new Room(name);
-                rooms.Add(token, room);
-                return token;
+                string gameToken = Guid.NewGuid().ToString();
+                string adminToken = Guid.NewGuid().ToString();
+
+                Game game = new Game(name);
+                game.AdminToken = adminToken;
+                games.Add(gameToken, game);
+
+                User user = new User("Player 1");
+                user.Socket = socket;
+                game.Users.Add(user);
+
+                return gameToken + "," + adminToken;
             }
             return null;
+        }
+
+        private async Task StartGame(string gameToken, string adminToken)
+        {
+            Game game = games.GetValueOrDefault(gameToken);
+            if (!game.Started && game.AdminToken == adminToken)
+            {
+                game.Started = true;
+                // TODO(Jesper): Send socket message to all users in game.
+            }
         }
     }
 }
