@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 using _10FlipServer.Enums;
 using _10FlipServer.Models;
+using _10FlipServer.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
@@ -25,6 +26,7 @@ namespace _10FlipServer
     {
 
         private Dictionary<string, Game> games = new Dictionary<string, Game>();
+        private GameplayService gamePlayService = new GameplayService();
 
         public Startup(IConfiguration configuration)
         {
@@ -87,19 +89,7 @@ namespace _10FlipServer
 
                     if (msg == "lobby")
                     {
-                        var message = new Message();
-                        message.Type = MessageType.GET_GAMES;
-
-                        List<dynamic> returnGames = new List<dynamic>();
-                        foreach (var game in games)
-                        {
-                            dynamic o = new ExpandoObject();
-                            o.name = game.Value.Name;
-                            o.id = game.Key;
-                            returnGames.Add(o);
-                        }
-                        
-                        message.Data = returnGames;
+                        var message = GetGamesMessage();
                         await SendToWebSocket(JsonConvert.SerializeObject(message), webSocket, result);
                     }
                     else if (msg.Contains("create:"))
@@ -139,7 +129,7 @@ namespace _10FlipServer
                             }
                             else
                             {
-                                message.Data = -1;
+                                message = GetGamesMessage();
                                 await SendToWebSocket(JsonConvert.SerializeObject(message), webSocket, result);
                             }
                          }
@@ -162,6 +152,36 @@ namespace _10FlipServer
                         message.Data = "";
                         await SendToWebSocket(JsonConvert.SerializeObject(message), webSocket, result);
                     }
+                    else if (msg.Contains("place:"))
+                    {
+                        string[] parts = msg.Split("place:");
+                        if (parts.Length == 2)
+                        {
+                            CardType card = (CardType) Int32.Parse(parts[1]);
+                            await PlaceCard(card, webSocket, result);
+                        }
+                    }
+                    else if (msg == "endturn")
+                    {
+                        await EndTurn(webSocket, result);
+                    }
+                    else if (msg == "pickup")
+                    {
+                        Game game = games.Where(g => g.Value.Users.Any(u => u.Socket == webSocket)).FirstOrDefault().Value;
+                        game.CurrentUser = game.CurrentUser + 1 >= game.UserCount ? 0 : game.CurrentUser + 1;
+                        User placingUser = game.Users.Where(u => u.Socket == webSocket).FirstOrDefault();
+                        int index = game.Users.IndexOf(placingUser);
+                        if (index == game.CurrentUser)
+                        {
+                            while (game.PlacedCards.Count > 0)
+                            {
+                                var card = game.PlacedCards.Pop();
+                                placingUser.Hand.Add(card);
+                            }
+                            await UpdateGame(game, result);
+                        }
+                        await EndTurn(webSocket, result);
+                    }
 
                     result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), System.Threading.CancellationToken.None);
                 }
@@ -172,6 +192,59 @@ namespace _10FlipServer
         private async Task SendToWebSocket(string msg, WebSocket webSocket, WebSocketReceiveResult result)
         {
             await webSocket.SendAsync(new ArraySegment<byte>(Encoding.UTF8.GetBytes(msg)), result.MessageType, result.EndOfMessage, System.Threading.CancellationToken.None);
+        }
+
+        private async Task EndTurn(WebSocket webSocket, WebSocketReceiveResult result)
+        {
+            Message message = new Message();
+            message.Type = MessageType.GAME_END_TURN;
+            Game game = games.Where(g => g.Value.Users.Any(u => u.Socket == webSocket)).FirstOrDefault().Value;
+            game.CurrentUser = game.CurrentUser + 1 >= game.UserCount ? 0 : game.CurrentUser + 1;
+            for (int i = 0; i < game.Users.Count; i++)
+            {
+                int myTurn = game.CurrentUser == i ? 1 : 0;
+                message.Data = myTurn;
+                await SendToWebSocket(JsonConvert.SerializeObject(message), game.Users.ElementAt(i).Socket, result);
+            }
+        }
+
+        private async Task PlaceCard(CardType card, WebSocket webSocket, WebSocketReceiveResult result)
+        {
+            var message = new Message();
+            message.Type = MessageType.GAME_UPDATE;
+
+            Game game = games.Where(g => g.Value.Users.Any(u => u.Socket == webSocket)).FirstOrDefault().Value;
+            User placingUser = game.Users.Where(u => u.Socket == webSocket).FirstOrDefault();
+            if (game != null)
+            {
+                gamePlayService.HandlePlaceRequest(game, placingUser, card);
+                await UpdateGame(game, result);
+            }
+        }
+
+        private async Task UpdateGame(Game game, WebSocketReceiveResult result)
+        {
+            Message message = new Message();
+            message.Type = MessageType.GAME_UPDATE;
+            foreach (User user in game.Users)
+            {
+                dynamic o = new ExpandoObject();
+                o.opponentCount = game.UserCount - 1;
+
+                o.opponents = new List<dynamic>();
+                foreach (User opp in game.Users.Where(u => u != user))
+                {
+                    dynamic opponent = new ExpandoObject();
+                    opponent.topCards = opp.TopCards;
+                    opponent.handCount = opp.Hand.Count;
+                    o.opponents.Add(opponent);
+                }
+
+                o.topCards = user.TopCards;
+                o.hand = user.Hand;
+                message.Data = o;
+                await SendToWebSocket(JsonConvert.SerializeObject(message), user.Socket, result);
+            }
         }
 
         private async Task<string> ConnectToGame(string token, WebSocket socket)
@@ -222,13 +295,55 @@ namespace _10FlipServer
             Game game = games.GetValueOrDefault(gameToken);
             if (!game.Started && game.AdminToken == adminToken)
             {
-                game.Started = true;
-                string response = "Game started";
+                User starter = gamePlayService.StartGame(game);
+                var message = new Message();
+                message.Type = MessageType.START_GAME;
+
                 foreach (User user in game.Users)
                 {
-                    SendToWebSocket(response, user.Socket, result);
+                    await SendToWebSocket(JsonConvert.SerializeObject(message), user.Socket, result);
+                }
+
+                var gameInit = new Message();
+                message.Type = MessageType.GAME_INIT;
+                foreach (User user in game.Users)
+                {
+                    dynamic o = new ExpandoObject();
+                    o.opponentCount = game.UserCount - 1;
+
+                    o.opponents = new List<dynamic>();
+                    foreach (User opp in game.Users.Where(u => u != user))
+                    {
+                        dynamic opponent = new ExpandoObject();
+                        opponent.topCards = opp.TopCards;
+                        o.opponents.Add(opponent);
+                    }
+
+                    o.topCards = user.TopCards;
+                    o.hand = user.Hand;
+                    o.yourTurn = user == starter ? 1 : 0;
+                    message.Data = o;
+                    await SendToWebSocket(JsonConvert.SerializeObject(message), user.Socket, result);
                 }
             }
+        }
+
+        private Message GetGamesMessage()
+        {
+            var message = new Message();
+            message.Type = MessageType.GET_GAMES;
+
+            List<dynamic> returnGames = new List<dynamic>();
+            foreach (var game in games.Where(g => !g.Value.Started))
+            {
+                dynamic o = new ExpandoObject();
+                o.name = game.Value.Name;
+                o.id = game.Key;
+                returnGames.Add(o);
+            }
+
+            message.Data = returnGames;
+            return message;
         }
     }
 }
