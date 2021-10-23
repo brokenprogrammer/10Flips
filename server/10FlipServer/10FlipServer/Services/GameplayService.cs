@@ -51,11 +51,27 @@ namespace _10FlipServer.Services
                 return;
             }
 
-            Card card = user.Hand.Where(c => c.Type == cardType).FirstOrDefault();
-            if (card == null)
+            Card card = null;
+            if (cardType == CardType.CARD_TYPE_FLIPPED)
             {
-                card = user.TopCards.Where(c => c.Type == cardType).FirstOrDefault();
+                foreach (var c in user.BottomCards)
+                {
+                    if (c != null)
+                    {
+                        card = c;
+                        break;
+                    }
+                }
             }
+            else
+            {
+                card = user.Hand.Where(c => c.Type == cardType).FirstOrDefault();
+                if (card == null)
+                {
+                    card = user.TopCards.Where(c => c.Type == cardType).FirstOrDefault();
+                }
+            }
+
             if (card == null)
             {
                 return;
@@ -80,17 +96,13 @@ namespace _10FlipServer.Services
 
             bool isHand = user.Hand.Contains(card);
             bool isTopCard = user.TopCards.Contains(card);
-
-            if (isTopCard && user.Hand.Count > 0)
-            {
-                return false;
-            }
+            bool isBottomCard = user.BottomCards.Contains(card);
 
             if (card.Value == 10)
             {
                 // NOTE(Jesper): Reset placed cards.
                 game.PlacedCards.Push(card);
-                RemoveCardFromUser(card, user, game, isHand, isTopCard);
+                RemoveCardFromUser(card, user, game, isHand, isTopCard, isBottomCard);
                 game.PlacedCards = new Stack<Card>();
                 return true;
             }
@@ -98,31 +110,47 @@ namespace _10FlipServer.Services
             {
                 // NOTE(Jesper): Allow same user to place another card.
                 game.PlacedCards.Push(card);
-                RemoveCardFromUser(card, user, game, isHand, isTopCard);
+                RemoveCardFromUser(card, user, game, isHand, isTopCard, isBottomCard);
                 return true;
             }
             else
             {
                 Card topCard = game.PlacedCards.Peek();
                 bool canPlace = topCard == null || card.Value >= topCard.Value;
-                if (!canPlace)
+                if (!canPlace && !isBottomCard)
                 {
+                    PickUpAll(game, user);
                     return false;
                 }
 
                 game.PlacedCards.Push(card);
-                RemoveCardFromUser(card, user, game, isHand, isTopCard);
+                RemoveCardFromUser(card, user, game, isHand, isTopCard, isBottomCard);
+
+                if (!canPlace && isBottomCard)
+                {
+                    PickUpAll(game, user);
+                    return false;
+                }
 
                 return HasUserSameValue(game, user);
             }
         }
 
-        public void RemoveCardFromUser(Card card, User user, Game game, bool isHand, bool isTopCard)
+        public void PickUpAll(Game game, User placingUser)
+        {
+            while (game.PlacedCards.Count > 0)
+            {
+                var card = game.PlacedCards.Pop();
+                placingUser.Hand.Add(card);
+            }
+        }
+
+        public void RemoveCardFromUser(Card card, User user, Game game, bool isHand, bool isTopCard, bool isBottomCard)
         {
             if (isHand)
             {
                 user.Hand.Remove(card);
-                if (game.Deck.Cards.Count > 0)
+                if (game.Deck.Cards.Count > 0 && user.Hand.Count < 3)
                 {
                     user.Hand.Add(game.Deck.Cards.Pop());
                 }
@@ -130,15 +158,12 @@ namespace _10FlipServer.Services
             else if (isTopCard)
             {
                 int i = Array.IndexOf(user.TopCards, card);
-                if (user.BottomCards[i] != null)
-                {
-                    user.TopCards[i] = user.BottomCards[i];
-                    user.BottomCards[i] = null;
-                }
-                else
-                {
-                    user.TopCards[i] = null;
-                }
+                user.TopCards[i] = null;
+            }
+            else if (isBottomCard)
+            {
+                int i = Array.IndexOf(user.BottomCards, card);
+                user.BottomCards[i] = null;
             }
         }
 
@@ -147,6 +172,10 @@ namespace _10FlipServer.Services
             List<Card> cards = user.Hand;
             if (user.Hand.Count == 0)
             {
+                if (user.TopCards.Count() == 0)
+                {
+                    return true;
+                }
                 cards = user.TopCards.ToList();
             }
 
