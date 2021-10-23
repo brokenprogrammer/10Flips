@@ -15,6 +15,8 @@
 #define STN_USE_MEMORY
 #include "stn.h"
 
+#include "mjson.h"
+
 #define WINDOW_WIDTH 1280
 #define WINDOW_HEIGHT 720
 
@@ -24,6 +26,7 @@
 #include "assets.h"
 #include "renderer.h"
 #include "cards.h"
+#include "networking.h"
 
 struct tenflips_state
 {
@@ -46,6 +49,9 @@ struct tenflips_state
 
     // NOTE(Oskar): Networking
     EMSCRIPTEN_WEBSOCKET_T WebSocket;
+
+    message Messages[256];
+    u32 MessageCount;
 };
 STN_GLOBAL tenflips_state *GlobalState = NULL;
 

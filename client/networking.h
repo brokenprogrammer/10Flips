@@ -9,22 +9,31 @@ enum message_type
 
 struct game_message
 {
-    char *Id;
-    char *Name;
+    char Id[64];
+    char Name[64];
 };
 
 struct message
 {
+    message_type Type;
+
     union
     {
-        struct
+        struct // get_games
         {
             game_message Games[25];
+            u32 NumberOfGames;
         };
 
-        struct
+        struct // create_game
         {
-            u32 TEMP;
+            char Id[64];
+            char AdminToken[64];
         };
-    }
+
+        struct // connect_to_game
+        {
+            i32 PlayerCount;
+        };
+    };
 };

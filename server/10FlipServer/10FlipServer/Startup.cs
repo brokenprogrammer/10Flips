@@ -115,10 +115,9 @@ namespace _10FlipServer
                         if (parts.Length == 2)
                         {
                             string name = parts[1];
-                            responseMsg = await CreateNewGame(name, webSocket); // "{gameToken},{adminToken}"
+                            message.Data = await CreateNewGame(name, webSocket); // "{gameToken},{adminToken}"
                         }
 
-                        message.Data = responseMsg;
                         responseMsg = JsonConvert.SerializeObject(message);
                         await SendToWebSocket(responseMsg, webSocket, result);
                     }
@@ -134,8 +133,8 @@ namespace _10FlipServer
                             bool success = await ConnectToGame(token, webSocket);
                             if (success)
                             {
-                                message.Data = "Connected"; // TODO(Jesper): Implement game state.
                                 var game = games.GetValueOrDefault(token);
+                                message.Data = game.UserCount; // TODO(Jesper): Implement game state.
 
                                 responseMsg = JsonConvert.SerializeObject(message);
                                 foreach (User user in game.Users)
@@ -144,7 +143,7 @@ namespace _10FlipServer
                                 }
                             } else
                             {
-                                message.Data = "Failed";
+                                message.Data = -1;
                                 responseMsg = JsonConvert.SerializeObject(message);
                                 await SendToWebSocket(responseMsg, webSocket, result);
                             }
@@ -153,7 +152,7 @@ namespace _10FlipServer
                     else if (msg.Contains("start:"))
                     {
                         var message = new Message();
-                        message.Type = MessageType.CONECT_TO_GAME;
+                        message.Type = MessageType.START_GAME;
 
                         string[] parts = msg.Split("start:");
                         if (parts.Length == 2)
@@ -201,7 +200,7 @@ namespace _10FlipServer
             return false;
         }
 
-        private async Task<string> CreateNewGame(string name, WebSocket socket)
+        private async Task<dynamic> CreateNewGame(string name, WebSocket socket)
         {
             if (games.Count < 25)
             {
@@ -215,8 +214,11 @@ namespace _10FlipServer
                 User user = new User("Player 1");
                 user.Socket = socket;
                 game.Users.Add(user);
-
-                return "{ \"id\":\"" + gameToken + "\", \"adminToken\":\"" + adminToken + "\" }";
+                
+                dynamic o = new ExpandoObject();
+                o.id = gameToken;
+                o.adminToken = adminToken;
+                return o;
             }
             return null;
         }

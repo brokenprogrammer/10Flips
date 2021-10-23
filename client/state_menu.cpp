@@ -1,12 +1,22 @@
+struct menu_game
+{
+    char Id[65];
+    char Name[65];
+};
+
 struct menu_state
 {
     bool IsCreatingGame;
+
+    menu_game Games[25];
+    u32 NumberOfGames;
 };
 
 STN_INTERNAL void
 StateMenuInit(menu_state *State)
 {
     State->IsCreatingGame = false;
+    State->NumberOfGames = 0;
 }
 
 STN_INTERNAL void
@@ -14,10 +24,41 @@ StateMenuCleanup(menu_state *State)
 {
 }
 
+STN_INTERNAL void
+ProcessMenuEvents(menu_state *State)
+{
+    for (u32 Index = 0; Index < GlobalState->MessageCount; ++Index)
+    {
+        message Message = GlobalState->Messages[Index];
+
+        switch (Message.Type)
+        {
+            case MESSAGE_TYPE_GET_GAMES:
+            {
+                for (u32 GameIndex = 0; GameIndex < Message.NumberOfGames; ++GameIndex)
+                {
+                    menu_game *Game = &State->Games[State->NumberOfGames++];
+                    CopyCStringToFixedSizeBuffer(Game->Id, StringLength(Message.Games[GameIndex].Id) + 1, Message.Games[GameIndex].Id);
+                    CopyCStringToFixedSizeBuffer(Game->Name, StringLength(Message.Games[GameIndex].Name) + 1, Message.Games[GameIndex].Name);
+                }
+            } break;
+
+            default:
+            {
+                // NOTE(Oskar): Ignore for now..
+            }
+        }
+    }
+
+    GlobalState->MessageCount = 0;
+}
+
 STN_INTERNAL state_type
 StateMenuUpdate(menu_state *State)
 {
     state_type NextState = STATE_TYPE_INVALID;
+
+    ProcessMenuEvents(State);
 
     bool Open = true;
 
@@ -34,10 +75,10 @@ StateMenuUpdate(menu_state *State)
     static int item_current_idx = 0; // Here we store our selection data as an index.
     if (ImGui::BeginListBox("##listbox 2", ImVec2(-FLT_MIN, 25 * ImGui::GetTextLineHeightWithSpacing())))
     {
-        for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+        for (int n = 0; n < State->NumberOfGames; n++)
         {
             const bool is_selected = (item_current_idx == n);
-            if (ImGui::Selectable(items[n], is_selected))
+            if (ImGui::Selectable(State->Games[n].Name, is_selected))
                 item_current_idx = n;
 
             // Set the initial focus when opening the combo (scrolling + keyboard navigation focus)
@@ -50,7 +91,10 @@ StateMenuUpdate(menu_state *State)
     ImGui::BeginGroup();
     if (ImGui::Button("Join"))
     {
-        // TODO(Oskar): Join game
+        char Buffer[80];
+        sprintf(Buffer, "connect:%s", State->Games[item_current_idx].Id);
+        emscripten_websocket_send_utf8_text(GlobalState->WebSocket, Buffer);
+        NextState = STATE_TYPE_LOBBY;
     }
     ImGui::SameLine();
     if (ImGui::Button("Create"))
@@ -73,11 +117,10 @@ StateMenuUpdate(menu_state *State)
         ImGui::InputText("Name", buf1, 64);
         if (ImGui::Button("Create"))
         {
-            // TODO(Oskar): Create game
-            // State->IsInMenu = false;
-            // State->IsCreatingGame = false;
-            // State->HasCreatedGame = true;
-            // State->IsInLobby = true;
+            char Buffer[80];
+            sprintf(Buffer, "create:%s", buf1);
+            emscripten_websocket_send_utf8_text(GlobalState->WebSocket, Buffer);
+
             NextState = STATE_TYPE_LOBBY;
         }
         ImGui::End();
