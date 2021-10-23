@@ -10,6 +10,8 @@ namespace _10FlipServer.Models
         public string Name;
         public List<User> Users;
         public Deck Deck;
+        public Stack<Card> PlacedCards;
+        public int CurrentUser;
         public string AdminToken;
         public bool Started;
         public int MaxUsers;
