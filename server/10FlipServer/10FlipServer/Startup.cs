@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading.Tasks;
+using _10FlipServer.Enums;
 using _10FlipServer.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -88,6 +89,9 @@ namespace _10FlipServer
 
                     if (msg == "lobby")
                     {
+                        var message = new Message();
+                        message.Type = MessageType.GET_GAMES;
+
                         List<dynamic> returnGames = new List<dynamic>();
                         foreach (var game in games)
                         {
@@ -96,21 +100,33 @@ namespace _10FlipServer
                             o.id = game.Key;
                             returnGames.Add(o);
                         }
-                        responseMsg = JsonConvert.SerializeObject(returnGames);
+                        
+                        message.Data = returnGames;
+                        responseMsg = JsonConvert.SerializeObject(message);
+
                         await SendToWebSocket(responseMsg, webSocket, result);
                     }
                     else if (msg.Contains("create:"))
                     {
+                        var message = new Message();
+                        message.Type = MessageType.CREATE_GAME;
+
                         string[] parts = msg.Split("create:");
                         if (parts.Length == 2)
                         {
                             string name = parts[1];
                             responseMsg = await CreateNewGame(name, webSocket); // "{gameToken},{adminToken}"
                         }
+
+                        message.Data = responseMsg;
+                        responseMsg = JsonConvert.SerializeObject(message);
                         await SendToWebSocket(responseMsg, webSocket, result);
                     }
                     else if (msg.Contains("connect:"))
                     {
+                        var message = new Message();
+                        message.Type = MessageType.CONECT_TO_GAME;
+
                         string[] parts = msg.Split("connect:");
                         if (parts.Length == 2)
                         {
@@ -118,21 +134,27 @@ namespace _10FlipServer
                             bool success = await ConnectToGame(token, webSocket);
                             if (success)
                             {
-                                responseMsg = "Connected"; // TODO(Jesper): Implement game state.
+                                message.Data = "Connected"; // TODO(Jesper): Implement game state.
                                 var game = games.GetValueOrDefault(token);
+
+                                responseMsg = JsonConvert.SerializeObject(message);
                                 foreach (User user in game.Users)
                                 {
                                     await SendToWebSocket(responseMsg, user.Socket, result);
                                 }
                             } else
                             {
-                                responseMsg = "Failed";
+                                message.Data = "Failed";
+                                responseMsg = JsonConvert.SerializeObject(message);
                                 await SendToWebSocket(responseMsg, webSocket, result);
                             }
                         }
                     }
                     else if (msg.Contains("start:"))
                     {
+                        var message = new Message();
+                        message.Type = MessageType.CONECT_TO_GAME;
+
                         string[] parts = msg.Split("start:");
                         if (parts.Length == 2)
                         {
@@ -142,6 +164,9 @@ namespace _10FlipServer
                                 await StartGame(tokens[0], tokens[1]);
                             }
                         }
+
+                        message.Data = "";
+                        responseMsg = JsonConvert.SerializeObject(message);
                         await SendToWebSocket(responseMsg, webSocket, result);
                     }
 
