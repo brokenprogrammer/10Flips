@@ -7,6 +7,7 @@
 #include <SDL2/SDL_image.h>
 #include <GLES3/gl3.h>
 #include <emscripten.h>
+#include <emscripten/websocket.h>
 
 #define STN_NO_SSE
 #define STN_USE_MATH
@@ -41,8 +42,10 @@ struct tenflips_state
 
     // NOTE(Oskar): Rendering
     renderer Renderer;
-
     texture Cards;
+
+    // NOTE(Oskar): Networking
+    EMSCRIPTEN_WEBSOCKET_T WebSocket;
 };
 STN_GLOBAL tenflips_state *GlobalState = NULL;
 
@@ -53,6 +56,7 @@ STN_GLOBAL tenflips_state *GlobalState = NULL;
 #include "renderer.cpp"
 #include "state_game.cpp"
 #include "state.cpp"
+#include "networking.cpp"
 
 void
 Update(void *Argument)
@@ -108,6 +112,13 @@ int
 main()
 {
     tenflips_state State = {};
+
+    // NOTE(Oskar): Check for websocket support. If not exist we error out.
+    if (!emscripten_websocket_is_supported())
+    {
+        printf("No Websocket support detected. You can't play this game.\n");
+        return 0;
+    }
 
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
 
@@ -172,9 +183,20 @@ main()
     State.NextState = STATE_TYPE_INVALID;
     StateInit(State.GameState, &State.StateArena);
 
-    GlobalState = &State;
+    EmscriptenWebSocketCreateAttributes WebSocketAttributes = {
+        "wss://localhost:44344/game",
+        NULL,
+        EM_TRUE
+    };
+
+    State.WebSocket = emscripten_websocket_new(&WebSocketAttributes);
+    emscripten_websocket_set_onopen_callback(State.WebSocket, NULL, WebSocketOnOpen);
+    emscripten_websocket_set_onerror_callback(State.WebSocket, NULL, WebSocketOnError);
+    emscripten_websocket_set_onclose_callback(State.WebSocket, NULL, WebSocketOnClose);
+    emscripten_websocket_set_onmessage_callback(State.WebSocket, NULL, WebSocketOnMessage);
 
     // NOTE(Oskar): Schedule the main loop handler
+    GlobalState = &State;
     emscripten_set_main_loop_arg(Update, &State, -1, 1);
 
     return 0;
