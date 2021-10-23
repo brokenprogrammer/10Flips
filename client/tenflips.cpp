@@ -11,81 +11,53 @@
 #define STN_NO_SSE
 #define STN_USE_MATH
 #define STN_USE_STRING
+#define STN_USE_MEMORY
 #include "stn.h"
 
 #define WINDOW_WIDTH 1280
 #define WINDOW_HEIGHT 720
 
+#define MEMORY_SIZE STN_Megabytes(2)
+
+#include "state.h"
 #include "assets.h"
 #include "renderer.h"
 #include "cards.h"
 
-#include "shader.cpp"
-#include "assets.cpp"
-#include "renderer.cpp"
-
-struct player
-{
-    char *Name;
-    card_type Hand[52];
-    u32 NumberOfCards;
-
-    card_type TopCards[3];
-    card_type BottomCards[3];
-};
-
-struct opponent
-{
-    char *Name;
-
-    u32 NumberOfCards;
-
-    card_type TopCards[3];
-    card_type BottomCards[3];
-};
-
-struct game
-{
-    char *Name;
-    opponent Opponents[3];
-    u32 OpponentCount;
-
-    card_type TopCard;
-
-    player Player;
-};
-
-struct game_state
+struct tenflips_state
 {
     u32 WindowID;
     SDL_Window *Window;
     SDL_GLContext GLContext;
 
+    // NOTE(Oskar): Memory
+    u32 _MemorySize;
+    void *_Memory;
+    memory_arena StateArena;
+
     // NOTE(Oskar): Game State
-    bool IsInMenu;
-    bool IsCreatingGame;
-    bool IsInLobby;
-    bool HasCreatedGame;
-    bool IsPlaying;
-
-    game CurrentGame;
-
+    state_type GameState;
+    state_type NextState;
 
     // NOTE(Oskar): Rendering
     renderer Renderer;
 
     texture Cards;
 };
+STN_GLOBAL tenflips_state *GlobalState = NULL;
 
-#include "ui.cpp"
-#include "game.cpp"
-
-u32 Type = 0;
+#include "state_menu.cpp"
+#include "state_lobby.cpp"
+#include "shader.cpp"
+#include "assets.cpp"
+#include "renderer.cpp"
+#include "state_game.cpp"
+#include "state.cpp"
 
 void
 Update(void *Argument)
 {
-    game_state *State = (game_state *)Argument;
+    tenflips_state *State = (tenflips_state *)Argument;
 
     ImGuiIO& io = ImGui::GetIO();
 
@@ -102,49 +74,31 @@ Update(void *Argument)
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
 
-    if (io.MouseClicked[0])
+    state_type NextStateType = StateUpdate(State->GameState, &State->StateArena);
+    if (State->NextState == STATE_TYPE_INVALID)
     {
-        Type++;
-
-        if (Type > CARD_TYPE_FLIPPED)
-        {
-            Type = 0;
-        }
+        State->NextState = NextStateType;
     }
 
-    if (show_demo_window)
-        ImGui::ShowDemoWindow(&show_demo_window);
-
-
-    if (State->IsInMenu)
+    if (State->NextState != STATE_TYPE_INVALID)
     {
-        UpdateAndRenderMenu(State);
+        StateCleanUp(State->GameState, &State->StateArena);
+        MemoryArenaZero(&State->StateArena);
+        State->GameState = State->NextState;
+        State->NextState = STATE_TYPE_INVALID;
+        StateInit(State->GameState, &State->StateArena);
     }
 
-    if (State->IsCreatingGame)
-    {
-        UpdateAndRenderCreateGame(State);
-    }
+    // if (show_demo_window)
+    //     ImGui::ShowDemoWindow(&show_demo_window);
 
-    if (State->IsInLobby)
-    {
-        UpdateAndRenderLobby(State);
-    }
 
-    // Rendering
-    BeginFrame(&State->Renderer);
-
-    // NOTE(Oskar): IMGUI Rendering stuff.
+    // // NOTE(Oskar): IMGUI Rendering stuff.
     {
         ImGui::Render();
         SDL_GL_MakeCurrent(State->Window, State->GLContext);
         //glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-    }
-    
-    if (State->IsPlaying)
-    {
-        UpdateAndRenderGame(State, io);
     }
 
     SDL_GL_SwapWindow(State->Window);
@@ -153,7 +107,7 @@ Update(void *Argument)
 int 
 main()
 {
-    game_state State = {};
+    tenflips_state State = {};
 
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER);
 
@@ -203,11 +157,22 @@ main()
     printf("Cards stuff: %d, %d\n", State.Cards.Width, State.Cards.Height);
     printf("Starting the game!\n");
 
-    State.IsInMenu = true;
-    State.IsCreatingGame = false;
-    State.HasCreatedGame = false;
-    State.IsInLobby = false;
-    State.IsPlaying = false;
+    // NOTE(Oskar): Init memory
+    {
+        State._MemorySize = MEMORY_SIZE;
+        State._Memory = calloc(1, State._MemorySize);
+
+        State.StateArena = MemoryArenaInit(State._Memory, State._MemorySize);
+        u32 StateArenaSize = State.StateArena.MemoryLeft;
+
+        // MemoryArenaAllocate(&State.StateArena, StateArenaSize);
+    }
+
+    State.GameState = STATE_TYPE_MENU;
+    State.NextState = STATE_TYPE_INVALID;
+    StateInit(State.GameState, &State.StateArena);
+
+    GlobalState = &State;
 
     // NOTE(Oskar): Schedule the main loop handler
     emscripten_set_main_loop_arg(Update, &State, -1, 1);

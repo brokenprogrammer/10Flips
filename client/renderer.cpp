@@ -137,7 +137,7 @@ PushTextureAngle(renderer *Renderer, texture *Texture,
 STN_INTERNAL void
 BeginFrame(renderer *Renderer)
 {
-    glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
 
     Renderer->PushedJobs = 0;
