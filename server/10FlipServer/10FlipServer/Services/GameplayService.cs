@@ -12,6 +12,7 @@ namespace _10FlipServer.Services
         public User StartGame(Game game)
         {
             game.Started = true;
+            game.Deck = new Deck();
             ResetDeck(game.Deck);
 
             User starter = null;
@@ -19,6 +20,8 @@ namespace _10FlipServer.Services
 
             foreach (User user in game.Users)
             {
+                user.Hand = new List<Card>();
+
                 user.BottomCards = new Card[3];
                 user.TopCards = new Card[3];
                 for (int i = 0; i < 3; i++)
@@ -103,7 +106,7 @@ namespace _10FlipServer.Services
             }
             else
             {
-                Card topCard = game.PlacedCards.Peek();
+                Card topCard = game.PlacedCards.Count > 0 ? game.PlacedCards.Peek() : null;
                 bool canPlace = topCard == null || card.Value >= topCard.Value;
                 if (!canPlace)
                 {
@@ -150,6 +153,12 @@ namespace _10FlipServer.Services
                 cards = user.TopCards.ToList();
             }
 
+
+            if (game.PlacedCards.Count == 0)
+            {
+                return true;
+            }
+
             Card topCard = game.PlacedCards.Peek();
             return cards.Any(c => c.Value == 10 || c.Value == 2 || c.Value >= topCard.Value);
         }
@@ -176,8 +185,9 @@ namespace _10FlipServer.Services
             cards = cards.OrderBy(a => Guid.NewGuid()).ToList();
 
             deck.Cards = new Stack<Card>();
-            foreach (Card card in cards)
+            for (int index = 0; index < cards.Count(); ++index)
             {
+                Card card = cards[index];
                 deck.Cards.Push(card);
             }
         }

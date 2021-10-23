@@ -168,7 +168,6 @@ namespace _10FlipServer
                     else if (msg == "pickup")
                     {
                         Game game = games.Where(g => g.Value.Users.Any(u => u.Socket == webSocket)).FirstOrDefault().Value;
-                        game.CurrentUser = game.CurrentUser + 1 >= game.UserCount ? 0 : game.CurrentUser + 1;
                         User placingUser = game.Users.Where(u => u.Socket == webSocket).FirstOrDefault();
                         int index = game.Users.IndexOf(placingUser);
                         if (index == game.CurrentUser)
@@ -235,13 +234,15 @@ namespace _10FlipServer
                 foreach (User opp in game.Users.Where(u => u != user))
                 {
                     dynamic opponent = new ExpandoObject();
-                    opponent.topCards = opp.TopCards;
                     opponent.handCount = opp.Hand.Count;
+                    opponent.topCards = opp.TopCards;
                     o.opponents.Add(opponent);
                 }
 
                 o.topCards = user.TopCards;
                 o.hand = user.Hand;
+                o.yourTurn = user == game.Users.ElementAt(game.CurrentUser) ? 1 : 0;
+                o.tableCard = game.PlacedCards.Count > 0 ? game.PlacedCards.Peek().Type : CardType.CARD_TYPE_NULL;
                 message.Data = o;
                 await SendToWebSocket(JsonConvert.SerializeObject(message), user.Socket, result);
             }
@@ -315,6 +316,7 @@ namespace _10FlipServer
                     foreach (User opp in game.Users.Where(u => u != user))
                     {
                         dynamic opponent = new ExpandoObject();
+                        opponent.handCount = opp.Hand.Count;
                         opponent.topCards = opp.TopCards;
                         o.opponents.Add(opponent);
                     }
@@ -322,6 +324,7 @@ namespace _10FlipServer
                     o.topCards = user.TopCards;
                     o.hand = user.Hand;
                     o.yourTurn = user == starter ? 1 : 0;
+                    o.tableCard = game.PlacedCards.Count > 0 ? game.PlacedCards.Peek().Type : CardType.CARD_TYPE_NULL;
                     message.Data = o;
                     await SendToWebSocket(JsonConvert.SerializeObject(message), user.Socket, result);
                 }

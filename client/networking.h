@@ -5,6 +5,9 @@ enum message_type
     MESSAGE_TYPE_CONECT_TO_GAME = 2,
     MESSAGE_TYPE_START_GAME = 3,
     MESSAGE_TYPE_LEAVE_GAME = 4,
+    MESSAGE_TYPE_GAME_INIT = 5,
+    MESSAGE_TYPE_GAME_UPDATE = 6,
+    MESSAGE_TYPE_GAME_END_TURN = 7
 };
 
 struct game_message
@@ -34,6 +37,13 @@ struct message
         struct // connect_to_game
         {
             i32 PlayerCount;
+        };
+
+        game GameInit;
+
+        struct // end_turn
+        {
+            b32 MyTurn;
         };
     };
 };

@@ -6,11 +6,14 @@ struct lobby_state
 
     // TODO(Oskar): Get players info and stuff.
     u32 NumberOfPlayers;
+
+    b32 GameStarted;
 };
 
 STN_INTERNAL void
 StateLobbyInit(lobby_state *State)
 {
+    State->GameStarted = false;
     State->HasCreatedGame = false;
     State->NumberOfPlayers = 1;
 }
@@ -45,6 +48,12 @@ ProcessLobbyEvents(lobby_state *State)
                 State->NumberOfPlayers = (u32)Message.PlayerCount;
             } break;
 
+            case MESSAGE_TYPE_START_GAME:
+            {
+                State->GameStarted = true;
+                goto lobbyEventsDone;
+            } break;
+
             default:
             {
                 // NOTE(Oskar): Ignore for now..
@@ -53,6 +62,7 @@ ProcessLobbyEvents(lobby_state *State)
     }
 
     GlobalState->MessageCount = 0;
+lobbyEventsDone:
     return true;
 }
 
@@ -64,6 +74,11 @@ StateLobbyUpdate(lobby_state *State)
     if (!ProcessLobbyEvents(State))
     {
         NextState = STATE_TYPE_MENU;
+    }
+
+    if (State->GameStarted)
+    {
+        NextState = STATE_TYPE_GAME;
     }
 
     bool Open = true;

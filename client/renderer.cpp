@@ -84,7 +84,7 @@ PushTexture(renderer *Renderer, texture *Texture,
     ((f32 *)Data)[15] = p4.Z;
 
     Renderer->TextureInstanceDataAllocPosition += RENDERER_BYTES_PER_JOB;
-    Renderer->PushedJobs++;
+    Renderer->JobTextures[Renderer->PushedJobs++] = Texture;
 }
 
 STN_INTERNAL void
@@ -131,7 +131,7 @@ PushTextureAngle(renderer *Renderer, texture *Texture,
     ((f32 *)Data)[15] = p4.Z;
 
     Renderer->TextureInstanceDataAllocPosition += RENDERER_BYTES_PER_JOB;
-    Renderer->PushedJobs++;
+    Renderer->JobTextures[Renderer->PushedJobs++] = Texture;
 }
 
 STN_INTERNAL void
@@ -147,7 +147,7 @@ BeginFrame(renderer *Renderer)
 }
 
 STN_INTERNAL void
-EndFrame(renderer *Renderer, texture *Texture)
+EndFrame(renderer *Renderer)
 {
     matrix4 ViewProjection  = Matrix4Orthographic(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1.0f, 1.0f);
 
@@ -166,7 +166,7 @@ EndFrame(renderer *Renderer, texture *Texture)
             glUniformMatrix4fv(glGetUniformLocation(Renderer->TextureShader, "view_projection"), 1, GL_FALSE,
                                &ViewProjection.Elements[0][0]);
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, Texture->Id);
+            glBindTexture(GL_TEXTURE_2D, Renderer->JobTextures[Index]->Id);
 
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -175,8 +175,8 @@ EndFrame(renderer *Renderer, texture *Texture)
 
             glUniform1i(glGetUniformLocation(Renderer->TextureShader, "tex"), 0);
             glUniform2f(glGetUniformLocation(Renderer->TextureShader, "tex_resolution"),
-                        (f32)Texture->Width,
-                        (f32)Texture->Height);
+                        (f32)Renderer->JobTextures[Index]->Width,
+                        (f32)Renderer->JobTextures[Index]->Height);
             
             GLint First = 0;
             GLsizei Count = 4;

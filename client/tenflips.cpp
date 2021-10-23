@@ -22,10 +22,11 @@
 
 #define MEMORY_SIZE STN_Megabytes(2)
 
+#include "cards.h"
+#include "entity.h"
 #include "state.h"
 #include "assets.h"
 #include "renderer.h"
-#include "cards.h"
 #include "networking.h"
 
 struct tenflips_state
@@ -46,6 +47,7 @@ struct tenflips_state
     // NOTE(Oskar): Rendering
     renderer Renderer;
     texture Cards;
+    texture EndTurn;
 
     // NOTE(Oskar): Networking
     EMSCRIPTEN_WEBSOCKET_T WebSocket;
@@ -170,6 +172,7 @@ main()
 
     InitializeRenderer(&State.Renderer);
     State.Cards = LoadTexture("assets/8BitDeckAssets.png");
+    State.EndTurn = LoadTexture("assets/endturn.png");
 
     printf("Cards stuff: %d, %d\n", State.Cards.Width, State.Cards.Height);
     printf("Starting the game!\n");
