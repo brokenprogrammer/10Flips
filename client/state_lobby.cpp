@@ -1,15 +1,18 @@
 struct lobby_state
 {
     bool HasCreatedGame;
+    char AdminToken[80];
+    char GameId[80];
 
     // TODO(Oskar): Get players info and stuff.
+    u32 NumberOfPlayers;
 };
 
 STN_INTERNAL void
 StateLobbyInit(lobby_state *State)
 {
-    // TODO(Oskar): Get this from server.
-    State->HasCreatedGame = true;
+    State->HasCreatedGame = false;
+    State->NumberOfPlayers = 1;
 }
 
 STN_INTERNAL void
@@ -17,10 +20,51 @@ StateLobbyCleanup(lobby_state *State)
 {
 }
 
+STN_INTERNAL b32
+ProcessLobbyEvents(lobby_state *State)
+{
+    for (u32 Index = 0; Index < GlobalState->MessageCount; ++Index)
+    {
+        message Message = GlobalState->Messages[Index];
+
+        switch (Message.Type)
+        {
+            case MESSAGE_TYPE_CREATE_GAME:
+            {
+                State->HasCreatedGame = true;
+                CopyCStringToFixedSizeBuffer(State->AdminToken, StringLength(Message.AdminToken) + 1, Message.AdminToken);
+                CopyCStringToFixedSizeBuffer(State->GameId, StringLength(Message.Id) + 1, Message.Id);
+            } break;
+
+            case MESSAGE_TYPE_CONECT_TO_GAME:
+            {
+                if (Message.PlayerCount < 0)
+                {
+                    return false; 
+                }
+                State->NumberOfPlayers = (u32)Message.PlayerCount;
+            } break;
+
+            default:
+            {
+                // NOTE(Oskar): Ignore for now..
+            }
+        }
+    }
+
+    GlobalState->MessageCount = 0;
+    return true;
+}
+
 STN_INTERNAL state_type
 StateLobbyUpdate(lobby_state *State)
 {
     state_type NextState = STATE_TYPE_INVALID;
+
+    if (!ProcessLobbyEvents(State))
+    {
+        NextState = STATE_TYPE_MENU;
+    }
 
     bool Open = true;
 
@@ -46,7 +90,7 @@ StateLobbyUpdate(lobby_state *State)
     static int item_current_idx = 0;
     if (ImGui::BeginListBox("##playerlist", ImVec2(-FLT_MIN, 4 * ImGui::GetTextLineHeightWithSpacing())))
     {
-        for (int n = 0; n < IM_ARRAYSIZE(items); n++)
+        for (int n = 0; n < State->NumberOfPlayers; n++)
         {
             const bool is_selected = (0 == n);
             if (ImGui::Selectable(items[n], is_selected))
@@ -62,7 +106,7 @@ StateLobbyUpdate(lobby_state *State)
     ImGui::BeginGroup();
     if (ImGui::Button("Back"))
     {
-        // TODO(Oskar): Leave lobby
+        // TODO(Oskar): Send Leave lobby message
         NextState = STATE_TYPE_MENU;
     }
     ImGui::SameLine();
@@ -70,7 +114,11 @@ StateLobbyUpdate(lobby_state *State)
     {
         if (ImGui::Button("Start Game"))
         {
-            // TODO(Oskar): Join game
+            // NOTE(Oskar): Start game!
+            char Buffer[80];
+            sprintf(Buffer, "start:%s,%s", State->GameId, State->AdminToken);
+            emscripten_websocket_send_utf8_text(GlobalState->WebSocket, Buffer);
+
             NextState = STATE_TYPE_GAME;
         }
     }

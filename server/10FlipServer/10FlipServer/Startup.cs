@@ -6,6 +6,7 @@ using System.Net;
 using System.Net.WebSockets;
 using System.Text;
 using System.Threading.Tasks;
+using _10FlipServer.Enums;
 using _10FlipServer.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -86,6 +87,9 @@ namespace _10FlipServer
 
                     if (msg == "lobby")
                     {
+                        var message = new Message();
+                        message.Type = MessageType.GET_GAMES;
+
                         List<dynamic> returnGames = new List<dynamic>();
                         foreach (var game in games)
                         {
@@ -94,52 +98,57 @@ namespace _10FlipServer
                             o.id = game.Key;
                             returnGames.Add(o);
                         }
-                        string response = JsonConvert.SerializeObject(returnGames);
-                        await SendToWebSocket(response, webSocket, result);
+                        
+                        message.Data = returnGames;
+                        await SendToWebSocket(JsonConvert.SerializeObject(message), webSocket, result);
                     }
                     else if (msg.Contains("create:"))
                     {
+                        var message = new Message();
+                        message.Type = MessageType.CREATE_GAME;
+
                         string[] parts = msg.Split("create:");
                         if (parts.Length == 2)
                         {
                             string name = parts[1];
-                            string response = await CreateNewGame(name, webSocket);
-                            await SendToWebSocket(response, webSocket, result);
-                        } else
-                        {
-                            await SendToWebSocket("Failed", webSocket, result);
+                            message.Data = await CreateNewGame(name, webSocket); // "{gameToken},{adminToken}"
                         }
+
+                        await SendToWebSocket(JsonConvert.SerializeObject(message), webSocket, result);
                     }
                     else if (msg.Contains("connect:"))
                     {
                         bool isConnected = games.Any(g => g.Value.Users.Any(u => u.Socket == webSocket));
                         if (!isConnected)
                         {
+                            var message = new Message();
+                            message.Type = MessageType.CONECT_TO_GAME;
+
                             string[] parts = msg.Split("connect:");
                             if (parts.Length == 2)
                             {
                                 string token = parts[1];
                                 string name = await ConnectToGame(token, webSocket);
-                                if (name != null)
+                                var game = games.GetValueOrDefault(token);
+                                message.Data = game.UserCount;
+
+                                foreach (User user in game.Users)
                                 {
-                                    var game = games.GetValueOrDefault(token);
-                                    dynamic o = new ExpandoObject();
-                                    o.message = name + " connected.";
-                                    o.users = game.Users;
-                                    string response = JsonConvert.SerializeObject(o);
-                                    foreach (User user in game.Users)
-                                    {
-                                        SendToWebSocket(response, user.Socket, result);
-                                    }
-                                } else
-                                {
-                                    await SendToWebSocket("Failed", webSocket, result);
+                                    await SendToWebSocket(JsonConvert.SerializeObject(message), user.Socket, result);
                                 }
                             }
-                        }
+                            else
+                            {
+                                message.Data = -1;
+                                await SendToWebSocket(JsonConvert.SerializeObject(message), webSocket, result);
+                            }
+                         }
                     }
                     else if (msg.Contains("start:"))
                     {
+                        var message = new Message();
+                        message.Type = MessageType.START_GAME;
+
                         string[] parts = msg.Split("start:");
                         if (parts.Length == 2)
                         {
@@ -149,6 +158,9 @@ namespace _10FlipServer
                                 await StartGame(tokens[0], tokens[1], result);
                             }
                         }
+
+                        message.Data = "";
+                        await SendToWebSocket(JsonConvert.SerializeObject(message), webSocket, result);
                     }
 
                     result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), System.Threading.CancellationToken.None);
@@ -182,7 +194,7 @@ namespace _10FlipServer
             return null;
         }
 
-        private async Task<string> CreateNewGame(string name, WebSocket socket)
+        private async Task<dynamic> CreateNewGame(string name, WebSocket socket)
         {
             if (games.Count < 25)
             {
@@ -196,8 +208,11 @@ namespace _10FlipServer
                 User user = new User("Player 1");
                 user.Socket = socket;
                 game.Users.Add(user);
-
-                return "{ \"id\":\"" + gameToken + "\", \"adminToken\":\"" + adminToken + "\" }";
+                
+                dynamic o = new ExpandoObject();
+                o.id = gameToken;
+                o.adminToken = adminToken;
+                return o;
             }
             return null;
         }
