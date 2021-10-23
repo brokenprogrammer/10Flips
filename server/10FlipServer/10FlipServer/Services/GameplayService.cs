@@ -11,6 +11,7 @@ namespace _10FlipServer.Services
 
         public User StartGame(Game game)
         {
+            game.Started = true;
             ResetDeck(game.Deck);
 
             User starter = null;
@@ -40,6 +41,30 @@ namespace _10FlipServer.Services
             game.CurrentUser = game.Users.IndexOf(starter);
 
             return starter;
+        }
+
+        public void HandlePlaceRequest(Game game, User user, CardType cardType)
+        {
+            int index = game.Users.IndexOf(user);
+            if (index != game.CurrentUser)
+            {
+                return;
+            }
+
+            Card card = user.Hand.Where(c => c.Type == cardType).FirstOrDefault();
+            if (card == null)
+            {
+                card = user.TopCards.Where(c => c.Type == cardType).FirstOrDefault();
+            }
+            if (card == null)
+            {
+                return;
+            }
+
+            if (CanUserPlace(game, user))
+            {
+                PlaceCard(game, user, card);
+            }
         }
 
         /*

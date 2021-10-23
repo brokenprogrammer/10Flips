@@ -12,5 +12,8 @@ namespace _10FlipServer.Enums
         CONECT_TO_GAME = 2,
         START_GAME = 3,
         LEAVE_GAME = 4,
+        GAME_INIT = 5,
+        GAME_UPDATE = 6,
+        GAME_END_TURN = 7
     }
 }
