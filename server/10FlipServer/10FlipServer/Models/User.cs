@@ -10,6 +10,9 @@ namespace _10FlipServer.Models
     {
         public string Name;
         public WebSocket Socket;
+        public List<Card> Hand;
+        public Card[] BottomCards;
+        public Card[] TopCards;
 
         public User(string name)
         {
