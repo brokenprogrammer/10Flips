@@ -20,7 +20,7 @@ StateLobbyCleanup(lobby_state *State)
 {
 }
 
-STN_INTERNAL void
+STN_INTERNAL b32
 ProcessLobbyEvents(lobby_state *State)
 {
     for (u32 Index = 0; Index < GlobalState->MessageCount; ++Index)
@@ -38,6 +38,10 @@ ProcessLobbyEvents(lobby_state *State)
 
             case MESSAGE_TYPE_CONECT_TO_GAME:
             {
+                if (Message.PlayerCount < 0)
+                {
+                    return false; 
+                }
                 State->NumberOfPlayers = (u32)Message.PlayerCount;
             } break;
 
@@ -49,6 +53,7 @@ ProcessLobbyEvents(lobby_state *State)
     }
 
     GlobalState->MessageCount = 0;
+    return true;
 }
 
 STN_INTERNAL state_type
@@ -56,7 +61,10 @@ StateLobbyUpdate(lobby_state *State)
 {
     state_type NextState = STATE_TYPE_INVALID;
 
-    ProcessLobbyEvents(State);
+    if (!ProcessLobbyEvents(State))
+    {
+        NextState = STATE_TYPE_MENU;
+    }
 
     bool Open = true;
 

@@ -100,9 +100,7 @@ namespace _10FlipServer
                         }
                         
                         message.Data = returnGames;
-                        responseMsg = JsonConvert.SerializeObject(message);
-
-                        await SendToWebSocket(responseMsg, webSocket, result);
+                        await SendToWebSocket(JsonConvert.SerializeObject(message), webSocket, result);
                     }
                     else if (msg.Contains("create:"))
                     {
@@ -116,48 +114,35 @@ namespace _10FlipServer
                             message.Data = await CreateNewGame(name, webSocket); // "{gameToken},{adminToken}"
                         }
 
-                        responseMsg = JsonConvert.SerializeObject(message);
-                        await SendToWebSocket(responseMsg, webSocket, result);
+                        await SendToWebSocket(JsonConvert.SerializeObject(message), webSocket, result);
                     }
                     else if (msg.Contains("connect:"))
                     {
                         bool isConnected = games.Any(g => g.Value.Users.Any(u => u.Socket == webSocket));
                         if (!isConnected)
-                        var message = new Message();
-                        message.Type = MessageType.CONECT_TO_GAME;
-
-                        string[] parts = msg.Split("connect:");
-                        if (parts.Length == 2)
                         {
+                            var message = new Message();
+                            message.Type = MessageType.CONECT_TO_GAME;
+
                             string[] parts = msg.Split("connect:");
                             if (parts.Length == 2)
                             {
+                                string token = parts[1];
+                                string name = await ConnectToGame(token, webSocket);
                                 var game = games.GetValueOrDefault(token);
-                                message.Data = game.UserCount; // TODO(Jesper): Implement game state.
+                                message.Data = game.UserCount;
 
-                                responseMsg = JsonConvert.SerializeObject(message);
                                 foreach (User user in game.Users)
                                 {
-                                    var game = games.GetValueOrDefault(token);
-                                    dynamic o = new ExpandoObject();
-                                    o.message = name + " connected.";
-                                    o.users = game.Users;
-                                    string response = JsonConvert.SerializeObject(o);
-                                    foreach (User user in game.Users)
-                                    {
-                                        SendToWebSocket(response, user.Socket, result);
-                                    }
-                                } else
-                                {
-                                    await SendToWebSocket("Failed", webSocket, result);
+                                    await SendToWebSocket(JsonConvert.SerializeObject(message), user.Socket, result);
                                 }
-                            } else
+                            }
+                            else
                             {
                                 message.Data = -1;
-                                responseMsg = JsonConvert.SerializeObject(message);
-                                await SendToWebSocket(responseMsg, webSocket, result);
+                                await SendToWebSocket(JsonConvert.SerializeObject(message), webSocket, result);
                             }
-                        }
+                         }
                     }
                     else if (msg.Contains("start:"))
                     {
@@ -175,8 +160,7 @@ namespace _10FlipServer
                         }
 
                         message.Data = "";
-                        responseMsg = JsonConvert.SerializeObject(message);
-                        await SendToWebSocket(responseMsg, webSocket, result);
+                        await SendToWebSocket(JsonConvert.SerializeObject(message), webSocket, result);
                     }
 
                     result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), System.Threading.CancellationToken.None);
