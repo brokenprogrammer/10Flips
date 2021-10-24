@@ -41,132 +41,276 @@ WebSocketOnMessage(int EventType, const EmscriptenWebSocketMessageEvent *Websock
     int MJSONResult = mjson_parse(&Parser, DataString, Len, Tokens, 512);
     if(MJSONResult < 0)
     {
-        printf("Failed to parse JSON!\n");
+        //printf("Failed to parse JSON!\n");
     }
 
     if (MJSONResult < 1 || Tokens[0].Type != MJSON_OBJECT) 
     {
-        printf("Object expected\n");
+        //printf("Object expected\n");
         return EM_FALSE;
     }
 
-    for (u32 JsonIndex = 1; JsonIndex < MJSONResult; ++JsonIndex)
+    // TODO(Oskar): We dont really want to do this loop.
+    // for (u32 JsonIndex = 1; JsonIndex < MJSONResult; ++JsonIndex)
+    // {
+    u32 JsonIndex = 1;
+    CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+    if (StringsAreEqual(Buffer, "Type"))
     {
+        JsonIndex++;
         CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
-        if (StringsAreEqual(Buffer, "Type"))
+        i32 Type = GetFirstI32FromCString(Buffer);
+
+        message_type MessageType = (message_type)Type;
+        Message.Type = MessageType;
+
+        switch(MessageType)
         {
-            JsonIndex++;
-            CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
-            i32 Type = GetFirstI32FromCString(Buffer);
-
-            message_type MessageType = (message_type)Type;
-            Message.Type = MessageType;
-
-            switch(MessageType)
+            case MESSAGE_TYPE_GET_GAMES:
             {
-                case MESSAGE_TYPE_GET_GAMES:
+                JsonIndex++;
+                JsonIndex++; // "Data"
+                
+                if (Tokens[JsonIndex].Type == MJSON_ARRAY)
                 {
+                    u32 TotalArraySize = Tokens[JsonIndex].Size;
                     JsonIndex++;
-                    JsonIndex++; // "Data"
-                    
-                    if (Tokens[JsonIndex].Type == MJSON_ARRAY)
+                    for (u32 ArrayIndex = 0; ArrayIndex < TotalArraySize; ++ArrayIndex)
                     {
-                        u32 TotalArraySize = Tokens[JsonIndex].Size;
-                        JsonIndex++;
-                        for (u32 ArrayIndex = 0; ArrayIndex < TotalArraySize; ++ArrayIndex)
+                        JsonIndex++; // {
+                        game_message *Game = &Message.Games[Message.NumberOfGames++];
+                        CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+                        if (StringsAreEqual(Buffer, "name"))
                         {
-                            JsonIndex++; // {
-                            game_message *Game = &Message.Games[Message.NumberOfGames++];
-                            printf("Inside ArrayLoop: %s\n", DataString + Tokens[JsonIndex].Start);
+                            JsonIndex++; // name
+
+                            CopyCStringToFixedSizeBuffer(Game->Name, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+                            JsonIndex++; 
+                        }
+                        
+                        CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+                        if (StringsAreEqual(Buffer, "id"))
+                        {
+                            JsonIndex++; // id
+
+                            CopyCStringToFixedSizeBuffer(Game->Id, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+
+                            JsonIndex++;
+                        }
+
+                        // JsonIndex++; // }
+                    }
+                }
+            } break;
+
+            case MESSAGE_TYPE_CREATE_GAME:
+            {
+                JsonIndex++;
+                JsonIndex++; // Data
+                JsonIndex++; // {
+                
+                CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+                if (StringsAreEqual(Buffer, "id"))
+                {
+                    JsonIndex++; // id
+                    CopyCStringToFixedSizeBuffer(Message.Id, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+
+                    JsonIndex++;
+                }
+                
+                CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+                if (StringsAreEqual(Buffer, "adminToken"))
+                {
+                    JsonIndex++; // name
+
+                    CopyCStringToFixedSizeBuffer(Message.AdminToken, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+
+                    JsonIndex++; 
+                }
+                
+                JsonIndex++; // }
+            } break;
+
+            case MESSAGE_TYPE_CONECT_TO_GAME:
+            {
+                JsonIndex++; // Data
+                JsonIndex++; // {
+
+                CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+                Message.PlayerCount = GetFirstI32FromCString(Buffer);
+
+            } break;
+
+            case MESSAGE_TYPE_START_GAME:
+            {
+            } break;
+
+            case MESSAGE_TYPE_LEAVE_GAME:
+            {
+            } break;
+
+            case MESSAGE_TYPE_GAME_INIT:
+            case MESSAGE_TYPE_GAME_UPDATE:
+            {
+                JsonIndex++; // Data
+                JsonIndex++; // {
+                JsonIndex++;
+                
+                CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+                if (StringsAreEqual(Buffer, "opponentCount"))
+                {
+                    JsonIndex++; // opponentCount
+
+                    CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+                    i32 Count = GetFirstI32FromCString(Buffer);
+
+                    Message.GameInit.OpponentCount = (u32)Count;
+                    
+                    JsonIndex++; 
+                }
+
+                JsonIndex++; // opponents
+
+                u32 TotalOpponentsArraySize = Tokens[JsonIndex].Size;
+
+                JsonIndex++; // [
+                // JsonIndex++; // {
+                for (u32 OpponentIndex = 0; OpponentIndex < TotalOpponentsArraySize; ++OpponentIndex)
+                {
+                    if (OpponentIndex == 0)
+                    {
+                        JsonIndex++; // {
+                    }
+                    
+                    CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+                    if (StringsAreEqual(Buffer, "handCount"))
+                    {
+                        JsonIndex++; // handCount
+
+                        CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+                        i32 HandCount = GetFirstI32FromCString(Buffer);
+                        Message.GameInit.Opponents[OpponentIndex].NumberOfCards = HandCount;
+
+                        JsonIndex++;
+                    }
+
+
+                    CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+                    if (StringsAreEqual(Buffer, "topCards"))
+                    {
+                        JsonIndex++; // topCards
+
+                        u32 TotalTopCardsArraySize = Tokens[JsonIndex].Size;
+                        JsonIndex++; // [
+                        JsonIndex++; // {
+                        for (u32 ArrayIndex = 0; ArrayIndex < TotalTopCardsArraySize; ++ArrayIndex)
+                        {
                             CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
-                            if (StringsAreEqual(Buffer, "name"))
+                            if (StringsAreEqual(Buffer, "Type"))
                             {
-                                JsonIndex++; // name
+                                JsonIndex++; // Type
 
-                                CopyCStringToFixedSizeBuffer(Game->Name, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
-                                printf("Inside Name: %s\n", DataString + Tokens[JsonIndex].Start);
-                                printf("Copied to Game.Name: %s\n", Game->Name);
+                                CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+                                i32 CardType = GetFirstI32FromCString(Buffer);
+                                Message.GameInit.Opponents[OpponentIndex].TopCards[ArrayIndex] = (card_type)CardType;
 
-                                JsonIndex++; 
+                                JsonIndex++; // Number
+                                JsonIndex++; // Value
+                                JsonIndex++; // Number
+                                JsonIndex++; // Suit
+                                JsonIndex++; // Number
                             }
-                            
-                            CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
-                            if (StringsAreEqual(Buffer, "id"))
-                            {
-                                JsonIndex++; // id
-
-                                CopyCStringToFixedSizeBuffer(Game->Id, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
-
-                                JsonIndex++;
-                            }
-
-                            // JsonIndex++; // }
+                            JsonIndex++;
                         }
                     }
-                    printf("1: %s\n", Message.Games[0].Id);
-                    printf("2: %s\n", Message.Games[0].Name);
-                } break;
+                    
+                    // JsonIndex++; // }
+                }
 
-                case MESSAGE_TYPE_CREATE_GAME:
+                u32 TotalTopCardsArraySize = Tokens[JsonIndex].Size;
+                JsonIndex++; // [
+                JsonIndex++; // {
+                for (u32 TopCard = 0; TopCard < TotalTopCardsArraySize; ++TopCard)
                 {
-                    printf("Create Event Start Token: %s\n", DataString + Tokens[JsonIndex].Start);
+                    CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+                    if (StringsAreEqual(Buffer, "Type"))
+                    {
+                        JsonIndex++; // Type
+
+                        CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+                        i32 CardType = GetFirstI32FromCString(Buffer);
+                        Message.GameInit.TopCards[TopCard] = (card_type)CardType;
+
+                        JsonIndex++; // Number
+                        JsonIndex++; // Value
+                        JsonIndex++; // Number
+                        JsonIndex++; // Suit
+                        JsonIndex++; // Number
+                    }
                     JsonIndex++;
-                    JsonIndex++; // Data
+                }
+                
+                u32 TotalHandCards = Tokens[JsonIndex].Size;
+                Message.GameInit.NumberOfCards = TotalHandCards;
+                
+                JsonIndex++;
+                JsonIndex++;
+                for (u32 HandIndex = 0; HandIndex < TotalHandCards; ++HandIndex)
+                {
+                    JsonIndex++; // Type
+
+                    CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+                    i32 CardType = GetFirstI32FromCString(Buffer);
+                    Message.GameInit.Hand[HandIndex] = (card_type)CardType;
+                    
+                    JsonIndex++; // HandValue
+                    JsonIndex++; // Value
+                    JsonIndex++; // Number
+                    JsonIndex++; // Suit
+                    JsonIndex++; // Number
                     JsonIndex++; // {
-                    
-                    printf("Create event\n");
-                    printf("%s\n", DataString + Tokens[JsonIndex].Start);
+                }
 
-                    CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
-                    printf("Buffer: : %s\n", Buffer);
-                    if (StringsAreEqual(Buffer, "id"))
-                    {
-                        JsonIndex++; // id
-                        CopyCStringToFixedSizeBuffer(Message.Id, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+                CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+                i32 YourTurn = GetFirstI32FromCString(Buffer);
 
-                        JsonIndex++;
-                    }
-                    
-                    CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
-                    if (StringsAreEqual(Buffer, "adminToken"))
-                    {
-                        JsonIndex++; // name
-
-                        CopyCStringToFixedSizeBuffer(Message.AdminToken, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
-
-                        JsonIndex++; 
-                    }
-                    
-                    JsonIndex++; // }
-
-                    printf("1: %s\n", Message.Id);
-                    printf("2: %s\n", Message.AdminToken);
-                } break;
-
-                case MESSAGE_TYPE_CONECT_TO_GAME:
+                if (YourTurn)
                 {
-                    printf("CONNECT TO GAME: %s\n", DataString + Tokens[JsonIndex].Start);
-                    JsonIndex++; // Data
-                    JsonIndex++; // {
-                    printf("CONNECT TO GAME2: %s\n", DataString + Tokens[JsonIndex].Start);
-
-                    CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
-                    Message.PlayerCount = GetFirstI32FromCString(Buffer);
-
-                } break;
-
-                case MESSAGE_TYPE_START_GAME:
+                    Message.GameInit.YourTurn = true;    
+                }
+                else
                 {
+                    Message.GameInit.YourTurn = false;
+                }
 
-                } break;
+                JsonIndex++; // YourTurn
+                JsonIndex++; // tableCard
 
-                case MESSAGE_TYPE_LEAVE_GAME:
+                CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+                i32 TableCardType = GetFirstI32FromCString(Buffer);
+                Message.GameInit.TableCard = (card_type)TableCardType;
+
+            } break;
+
+            case MESSAGE_TYPE_GAME_END_TURN:
+            {
+                JsonIndex++; // Data
+                JsonIndex++; // {
+
+                CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
+                i32 MyTurn = GetFirstI32FromCString(Buffer);
+                if (MyTurn)
                 {
-
-                } break;
-            }
+                    Message.MyTurn = true;    
+                }
+                else
+                {
+                    Message.MyTurn = false;
+                }
+            } break;
         }
     }
+    // }
 
     GlobalState->Messages[GlobalState->MessageCount++] = Message;
     return EM_TRUE;

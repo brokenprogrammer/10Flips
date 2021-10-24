@@ -5,6 +5,7 @@ struct renderer
     GLuint TextureShader;
 
     u32 PushedJobs;
+    texture *JobTextures[512];
 
     GLuint TextureVAO;
     GLuint TextureInstanceBuffer;
