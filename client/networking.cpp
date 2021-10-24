@@ -155,8 +155,6 @@ WebSocketOnMessage(int EventType, const EmscriptenWebSocketMessageEvent *Websock
                 JsonIndex++; // Data
                 JsonIndex++; // {
                 JsonIndex++;
-                
-                printf("START OF REQUEST: %s\n", DataString + Tokens[JsonIndex].Start);
 
                 CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
                 if (StringsAreEqual(Buffer, "opponentCount"))
@@ -312,9 +310,6 @@ WebSocketOnMessage(int EventType, const EmscriptenWebSocketMessageEvent *Websock
                 CopyCStringToFixedSizeBuffer(Buffer, (Tokens[JsonIndex].End - Tokens[JsonIndex].Start) + 1, DataString + Tokens[JsonIndex].Start);
                 i32 NumberOfBottomCards = GetFirstI32FromCString(Buffer);
                 Message.GameInit.NumberOfBottomCards = (u32)NumberOfBottomCards;
-
-                printf("Bottom Cards: %d\n", NumberOfBottomCards);
-
             } break;
 
             case MESSAGE_TYPE_GAME_END_TURN:
@@ -336,12 +331,10 @@ WebSocketOnMessage(int EventType, const EmscriptenWebSocketMessageEvent *Websock
 
             case MESSAGE_TYPE_GAME_WIN:
             {
-                printf("Got GAME_WIN\n");
             } break;
 
             case MESSAGE_TYPE_GAME_LOOSE:
             {
-                printf("Got GAME_LOOSE\n");
             } break;
         }
     }
