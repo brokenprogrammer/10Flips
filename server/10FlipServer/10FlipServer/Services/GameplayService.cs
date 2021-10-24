@@ -119,7 +119,8 @@ namespace _10FlipServer.Services
                 bool canPlace = topCard == null || card.Value >= topCard.Value;
                 if (!canPlace && !isBottomCard)
                 {
-                    PickUpAll(game, user);
+                    // NOTE(Jesper): Pick up manually.
+                    //PickUpAll(game, user);
                     return false;
                 }
 
