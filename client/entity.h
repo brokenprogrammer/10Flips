@@ -6,6 +6,7 @@ struct player
 struct opponent
 {
     u32 NumberOfCards; // NOTE(Oskar): Init to 3
+    u32 NumberOfBottomCards;
     card_type TopCards[3];
 };
 
@@ -21,6 +22,6 @@ struct game
     card_type Hand[52];
     u32 NumberOfCards; // NOTE(Oskar): Init to 3
     card_type TopCards[3];
-
+    u32 NumberOfBottomCards;
     card_type TableCard;
 };

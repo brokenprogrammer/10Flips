@@ -55,7 +55,7 @@ namespace _10FlipServer.Services
             }
 
             Card card = null;
-            if (cardType == CardType.CARD_TYPE_FLIPPED)
+            if (cardType == CardType.CARD_TYPE_FLIPPED && (user.Hand.Count() == 0))
             {
                 foreach (var c in user.BottomCards)
                 {
@@ -69,9 +69,9 @@ namespace _10FlipServer.Services
             else
             {
                 card = user.Hand.Where(c => c.Type == cardType).FirstOrDefault();
-                if (card == null)
+                if (card == null && user.Hand.Count() == 0)
                 {
-                    card = user.TopCards.Where(c => c.Type == cardType).FirstOrDefault();
+                    card = user.TopCards.Where(c => c != null && c.Type == cardType).FirstOrDefault();
                 }
             }
 
@@ -80,9 +80,14 @@ namespace _10FlipServer.Services
                 return;
             }
 
-            if (CanUserPlace(game, user))
+            if (game.canPlaceMore == false)
             {
-                PlaceCard(game, user, card);
+                return;
+            }
+
+            if (CanUserPlace(game, user) || cardType == CardType.CARD_TYPE_FLIPPED)
+            {
+                game.canPlaceMore = PlaceCard(game, user, card);
             }
         }
 
@@ -124,7 +129,7 @@ namespace _10FlipServer.Services
                 {
                     // NOTE(Jesper): Pick up manually.
                     //PickUpAll(game, user);
-                    return false;
+                    return true;
                 }
 
                 game.PlacedCards.Push(card);
@@ -190,7 +195,7 @@ namespace _10FlipServer.Services
             }
 
             Card topCard = game.PlacedCards.Peek();
-            return cards.Any(c => c.Value == 10 || c.Value == 2 || c.Value >= topCard.Value);
+            return cards.Any(c => c != null && ( c.Value == 10 || c.Value == 2 || c.Value >= topCard.Value ));
         }
 
         public bool HasUserSameValue(Game game, User user)
@@ -202,7 +207,7 @@ namespace _10FlipServer.Services
             }
 
             Card topCard = game.PlacedCards.Peek();
-            return cards.Any(c => c.Value == topCard.Value);
+            return cards.Any(c => c != null && c.Value == topCard.Value);
         }
 
         public void ResetDeck(Deck deck)

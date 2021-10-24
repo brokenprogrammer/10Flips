@@ -12,7 +12,7 @@ namespace _10FlipServer.Models
         {
             get
             {
-                return ((int) Type % 13) + 1;
+                return ((int) (Type - 1) % 13) + 2;
             }
         }
         public int Suit

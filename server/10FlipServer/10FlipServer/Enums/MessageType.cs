@@ -14,6 +14,8 @@ namespace _10FlipServer.Enums
         LEAVE_GAME = 4,
         GAME_INIT = 5,
         GAME_UPDATE = 6,
-        GAME_END_TURN = 7
+        GAME_END_TURN = 7,
+        GAME_WIN = 8,
+        GAME_LOOSE = 9,
     }
 }

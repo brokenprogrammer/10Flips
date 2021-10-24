@@ -48,6 +48,9 @@ struct tenflips_state
     renderer Renderer;
     texture Cards;
     texture EndTurn;
+    texture YourTurn;
+    texture YouWon;
+    texture YouLost;
 
     // NOTE(Oskar): Networking
     EMSCRIPTEN_WEBSOCKET_T WebSocket;
@@ -173,6 +176,9 @@ main()
     InitializeRenderer(&State.Renderer);
     State.Cards = LoadTexture("assets/8BitDeckAssets.png");
     State.EndTurn = LoadTexture("assets/endturn.png");
+    State.YourTurn = LoadTexture("assets/yourturn.png");
+    State.YouWon = LoadTexture("assets/youwon.png");
+    State.YouLost = LoadTexture("assets/youlost.png");
 
     printf("Cards stuff: %d, %d\n", State.Cards.Width, State.Cards.Height);
     printf("Starting the game!\n");
