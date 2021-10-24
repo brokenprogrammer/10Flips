@@ -15,6 +15,9 @@ namespace _10FlipServer.Models
         public string AdminToken;
         public bool Started;
         public int MaxUsers;
+
+        public bool canPlaceMore;
+
         public int UserCount
         {
             get
@@ -29,6 +32,7 @@ namespace _10FlipServer.Models
             Users = new List<User>();
             MaxUsers = 4;
             Started = false;
+            canPlaceMore = true;
         }
     }
 }

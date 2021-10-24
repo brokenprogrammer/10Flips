@@ -81,6 +81,13 @@ namespace _10FlipServer
             WebSocketReceiveResult result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), System.Threading.CancellationToken.None);
             if (result != null)
             {
+                // Clear empty games
+                var emptyGames = games.Where(g => g.Value.Users.All(u => u.Socket.State != WebSocketState.Open)).Select(k => k.Key).ToList();
+                foreach (var k in emptyGames)
+                {
+                    games.Remove(k);
+                }
+
                 while (!result.CloseStatus.HasValue)
                 {
                     string msg = Encoding.UTF8.GetString(new ArraySegment<byte>(buffer, 0, result.Count));
@@ -163,7 +170,13 @@ namespace _10FlipServer
                     }
                     else if (msg == "endturn")
                     {
-                        await EndTurn(webSocket, result);
+                        Game game = games.Where(g => g.Value.Users.Any(u => u.Socket == webSocket)).FirstOrDefault().Value;
+                        User endingUser = game.Users.Where(u => u.Socket == webSocket).FirstOrDefault();
+                        int index = game.Users.IndexOf(endingUser);
+                        if (index == game.CurrentUser)
+                        {
+                            await EndTurn(webSocket, result);
+                        }
                     }
                     else if (msg == "pickup")
                     {
@@ -199,6 +212,7 @@ namespace _10FlipServer
             message.Type = MessageType.GAME_END_TURN;
             Game game = games.Where(g => g.Value.Users.Any(u => u.Socket == webSocket)).FirstOrDefault().Value;
             game.CurrentUser = game.CurrentUser + 1 >= game.UserCount ? 0 : game.CurrentUser + 1;
+            game.canPlaceMore = true;
             for (int i = 0; i < game.Users.Count; i++)
             {
                 int myTurn = game.CurrentUser == i ? 1 : 0;
@@ -218,6 +232,24 @@ namespace _10FlipServer
             {
                 gamePlayService.HandlePlaceRequest(game, placingUser, card);
                 await UpdateGame(game, result);
+                if (placingUser.Hand.Count() == 0 && 
+                    placingUser.TopCards.Count(c => c != null) == 0 && 
+                    placingUser.BottomCards.Count(c => c != null) == 0)
+                {
+                    var winMessage = new Message();
+                    winMessage.Type = MessageType.GAME_WIN;
+                    winMessage.Data = 0;
+                    await SendToWebSocket(JsonConvert.SerializeObject(winMessage), placingUser.Socket, result);
+
+                    var otherUsers = game.Users.Where(u => u != placingUser).ToList();
+                    foreach (var u in otherUsers)
+                    {
+                        var loseMessage = new Message();
+                        loseMessage.Type = MessageType.GAME_LOOSE;
+                        loseMessage.Data = 0;
+                        await SendToWebSocket(JsonConvert.SerializeObject(loseMessage), u.Socket, result);
+                    }
+                }
             }
         }
 
@@ -234,6 +266,7 @@ namespace _10FlipServer
                 foreach (User opp in game.Users.Where(u => u != user))
                 {
                     dynamic opponent = new ExpandoObject();
+                    opponent.bottomCardCount = opp.BottomCards.Count(c => c != null);
                     opponent.handCount = opp.Hand.Count;
                     opponent.topCards = opp.TopCards;
                     o.opponents.Add(opponent);
@@ -243,6 +276,7 @@ namespace _10FlipServer
                 o.hand = user.Hand;
                 o.yourTurn = user == game.Users.ElementAt(game.CurrentUser) ? 1 : 0;
                 o.tableCard = game.PlacedCards.Count > 0 ? game.PlacedCards.Peek().Type : CardType.CARD_TYPE_NULL;
+                o.numberOfBottomCards = user.BottomCards.Count(c => c != null);
                 message.Data = o;
                 await SendToWebSocket(JsonConvert.SerializeObject(message), user.Socket, result);
             }
