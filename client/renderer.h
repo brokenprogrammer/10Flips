@@ -4,6 +4,9 @@ struct renderer
 {
     GLuint TextureShader;
 
+    u32 RenderWidth;
+    u32 RenderHeight;
+
     u32 PushedJobs;
     texture *JobTextures[512];
 
