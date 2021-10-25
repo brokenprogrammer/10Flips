@@ -22,7 +22,7 @@ vector4 CardTextureOffset[] =
     { 32 * 7,  32 + 48 * 2, 32, 48 },   // SIX_OF_CLUBS
     { 32 * 11,  32 + 48 * 0, 32, 48 },   // SEVEN_OF_CLUBS
     { 32 * 11,  32 + 48 * 1, 32, 48 },   // EIGHT_OF_CLUBS
-    { 32 * 1,  32 + 48 * 2, 32, 48 },   // NINE_OF_CLUBS
+    { 32 * 11,  32 + 48 * 2, 32, 48 },   // NINE_OF_CLUBS
     { 32 * 15,  32 + 48 * 0, 32, 48 },   // TEN_OF_CLUBS
     { 32 * 15, 32 + 48 * 1, 32, 48 },   // JACK_OF_CLUBS
     { 32 * 15, 32 + 48 * 2, 32, 48 },   // QUEEN_OF_CLUBS
