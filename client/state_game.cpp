@@ -85,18 +85,18 @@ StateGameUpdate(game_state *State)
 
     ProcessGameEvents(State);
 
-    BeginFrame(&GlobalState->Renderer);
+    BeginFrame(&GlobalState->Renderer, GlobalState->RenderWidth, GlobalState->RenderHeight);
 
     if (State->YouWon)
     {
         vector4 Source = Vector4Init(0, 0, GlobalState->YourTurn.Width, GlobalState->YourTurn.Height);
-        vector4 Destination = Vector4Init(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, 250, 100);
+        vector4 Destination = Vector4Init(GlobalState->RenderWidth / 2, GlobalState->RenderHeight / 2, 250, 100);
         PushTexture(&GlobalState->Renderer, &GlobalState->YouWon, Source, Destination);
     }
     else if (State->YouLost)
     {
         vector4 Source = Vector4Init(0, 0, GlobalState->YourTurn.Width, GlobalState->YourTurn.Height);
-        vector4 Destination = Vector4Init(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, 250, 100);
+        vector4 Destination = Vector4Init(GlobalState->RenderWidth / 2, GlobalState->RenderHeight / 2, 250, 100);
         PushTexture(&GlobalState->Renderer, &GlobalState->YouLost, Source, Destination);
     }
     else
@@ -124,13 +124,13 @@ StateGameUpdate(game_state *State)
         if (State->Game.YourTurn)
         {
             vector4 Source = Vector4Init(0, 0, GlobalState->YourTurn.Width, GlobalState->YourTurn.Height);
-            vector4 Destination = Vector4Init(WINDOW_WIDTH / 2, CARD_HEIGHT*2, 250, 100);
+            vector4 Destination = Vector4Init(GlobalState->RenderWidth / 2, CARD_HEIGHT*2, 250, 100);
             PushTexture(&GlobalState->Renderer, &GlobalState->YourTurn, Source, Destination);
         }
 
         // NOTE(Oskar): Draw TableCard
         {
-            vector4 Destination = Vector4Init(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, CARD_WIDTH, CARD_HEIGHT);
+            vector4 Destination = Vector4Init(GlobalState->RenderWidth / 2, GlobalState->RenderHeight / 2, CARD_WIDTH, CARD_HEIGHT);
             DrawCard(&GlobalState->Renderer, &GlobalState->Cards, State->Game.TableCard, Destination);
 
             if (io.MouseClicked[0])
@@ -147,10 +147,10 @@ StateGameUpdate(game_state *State)
 
         // NOTE(Oskar): Draw player
         {
-            f32 CardStartX = (WINDOW_WIDTH / 2.0) - (State->Game.NumberOfCards / 2) * CARD_WIDTH;
+            f32 CardStartX = (GlobalState->RenderWidth / 2.0) - (State->Game.NumberOfCards / 2) * CARD_WIDTH;
             for (u32 Index = 0; Index < State->Game.NumberOfCards; ++Index)
             {
-                vector4 Destination = Vector4Init(CardStartX, WINDOW_HEIGHT - CARD_HEIGHT, CARD_WIDTH, CARD_HEIGHT);
+                vector4 Destination = Vector4Init(CardStartX, GlobalState->RenderHeight - CARD_HEIGHT, CARD_WIDTH, CARD_HEIGHT);
                 DrawCard(&GlobalState->Renderer, &GlobalState->Cards, State->Game.Hand[Index], Destination);
 
                 if (io.MouseClicked[0])
@@ -169,10 +169,10 @@ StateGameUpdate(game_state *State)
                 CardStartX += CARD_WIDTH;
             }
 
-            CardStartX = (WINDOW_WIDTH / 2.0) - (State->Game.NumberOfCards / 2) * CARD_WIDTH;
+            CardStartX = (GlobalState->RenderWidth / 2.0) - (State->Game.NumberOfCards / 2) * CARD_WIDTH;
             for (u32 Index = 0; Index < 3; ++Index)
             {
-                vector4 Destination = Vector4Init(CardStartX, WINDOW_HEIGHT - CARD_HEIGHT * 2, CARD_WIDTH, CARD_HEIGHT);
+                vector4 Destination = Vector4Init(CardStartX, GlobalState->RenderHeight - CARD_HEIGHT * 2, CARD_WIDTH, CARD_HEIGHT);
                 
                 if (Index < State->Game.NumberOfBottomCards)
                 {
@@ -227,7 +227,7 @@ StateGameUpdate(game_state *State)
             // NOTE(Oskar): Top player
             if (OpponentIndex == 0)
             {
-                f32 CardStartX = (WINDOW_WIDTH / 2.0) - (State->Game.Opponents[OpponentIndex].NumberOfCards / 2) * CARD_WIDTH;
+                f32 CardStartX = (GlobalState->RenderWidth / 2.0) - (State->Game.Opponents[OpponentIndex].NumberOfCards / 2) * CARD_WIDTH;
 
                 // NOTE(Oskar): Render hand
                 for (u32 Index = 0; Index < State->Game.Opponents[OpponentIndex].NumberOfCards; ++Index)
@@ -238,7 +238,7 @@ StateGameUpdate(game_state *State)
                     CardStartX += CARD_WIDTH;
                 }
 
-                CardStartX = (WINDOW_WIDTH / 2.0) - (3 / 2) * CARD_WIDTH;
+                CardStartX = (GlobalState->RenderWidth / 2.0) - (3 / 2) * CARD_WIDTH;
                 // NOTE(Oskar): Render top and bottom cards
                 for (u32 Index = 0; Index < 3; ++Index)
                 {
@@ -259,7 +259,7 @@ StateGameUpdate(game_state *State)
             else if (OpponentIndex == 1) // Left Player
             {
                 f32 CardStartX = CARD_WIDTH;
-                f32 CardStartY = (WINDOW_HEIGHT / 2.0f) - (State->Game.Opponents[OpponentIndex].NumberOfCards / 2) * CARD_WIDTH;
+                f32 CardStartY = (GlobalState->RenderHeight / 2.0f) - (State->Game.Opponents[OpponentIndex].NumberOfCards / 2) * CARD_WIDTH;
 
                 // NOTE(Oskar): Render hand
                 for (u32 Index = 0; Index < State->Game.Opponents[OpponentIndex].NumberOfCards; ++Index)
@@ -270,7 +270,7 @@ StateGameUpdate(game_state *State)
                     CardStartY += CARD_WIDTH;
                 }
 
-                CardStartX = CardStartY = (WINDOW_HEIGHT / 2.0f) - (3 / 2) * CARD_WIDTH;
+                CardStartX = CardStartY = (GlobalState->RenderHeight / 2.0f) - (3 / 2) * CARD_WIDTH;
                 // NOTE(Oskar): Render top and bottom cards
                 for (u32 Index = 0; Index < 3; ++Index)
                 {
@@ -290,8 +290,8 @@ StateGameUpdate(game_state *State)
             }
             else if (OpponentIndex == 2) // Right player
             {
-                f32 CardStartX = WINDOW_WIDTH - CARD_HEIGHT;
-                f32 CardStartY = (WINDOW_HEIGHT / 2.0f) - (State->Game.Opponents[OpponentIndex].NumberOfCards / 2) * CARD_WIDTH;
+                f32 CardStartX = GlobalState->RenderWidth - CARD_HEIGHT;
+                f32 CardStartY = (GlobalState->RenderHeight / 2.0f) - (State->Game.Opponents[OpponentIndex].NumberOfCards / 2) * CARD_WIDTH;
 
                 // NOTE(Oskar): Render hand
                 for (u32 Index = 0; Index < State->Game.Opponents[OpponentIndex].NumberOfCards; ++Index)
@@ -302,7 +302,7 @@ StateGameUpdate(game_state *State)
                     CardStartY += CARD_WIDTH;
                 }
 
-                CardStartY = (WINDOW_HEIGHT / 2.0f) - (3 / 2) * CARD_WIDTH;
+                CardStartY = (GlobalState->RenderHeight / 2.0f) - (3 / 2) * CARD_WIDTH;
                 // NOTE(Oskar): Render top and bottom cards
                 for (u32 Index = 0; Index < 3; ++Index)
                 {

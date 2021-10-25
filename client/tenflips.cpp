@@ -45,6 +45,9 @@ struct tenflips_state
     state_type NextState;
 
     // NOTE(Oskar): Rendering
+    u32 RenderWidth;
+    u32 RenderHeight;
+
     renderer Renderer;
     texture Cards;
     texture EndTurn;
@@ -76,12 +79,23 @@ Update(void *Argument)
 
     ImGuiIO& io = ImGui::GetIO();
 
-    static bool show_demo_window = false;
 
     SDL_Event Event;
     while (SDL_PollEvent(&Event)) 
     {
-        ImGui_ImplSDL2_ProcessEvent(&Event);
+        if (Event.type == SDL_WINDOWEVENT)
+        {
+            if (Event.window.windowID == State->WindowID && 
+                Event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED)
+            {
+                State->RenderWidth  = Event.window.data1;
+                State->RenderHeight = Event.window.data2;
+            }
+        }
+        else
+        {
+            ImGui_ImplSDL2_ProcessEvent(&Event);
+        }
     }
 
     // Start the Dear ImGui frame
@@ -104,18 +118,14 @@ Update(void *Argument)
         StateInit(State->GameState, &State->StateArena);
     }
 
-    // if (show_demo_window)
-    //     ImGui::ShowDemoWindow(&show_demo_window);
-
-
-    // // NOTE(Oskar): IMGUI Rendering stuff.
+    
+     // // NOTE(Oskar): IMGUI Rendering stuff.
     {
         ImGui::Render();
         SDL_GL_MakeCurrent(State->Window, State->GLContext);
-        //glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
+        glViewport(0, 0, State->RenderWidth, State->RenderHeight);
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     }
-
     SDL_GL_SwapWindow(State->Window);
 }
 
@@ -136,7 +146,7 @@ main()
     State.Window = SDL_CreateWindow("10Flips",
                                     SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                     WINDOW_WIDTH, WINDOW_HEIGHT, 
-                                    SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE| SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI);
+                                    SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE| SDL_WINDOW_SHOWN);
     State.WindowID = SDL_GetWindowID(State.Window);
 
 

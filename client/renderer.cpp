@@ -135,21 +135,25 @@ PushTextureAngle(renderer *Renderer, texture *Texture,
 }
 
 STN_INTERNAL void
-BeginFrame(renderer *Renderer)
+BeginFrame(renderer *Renderer, u32 RenderWidth, u32 RenderHeight)
 {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
-    glViewport(0, 0, WINDOW_WIDTH, WINDOW_HEIGHT);
+    
+    Renderer->RenderWidth = RenderWidth;
+    Renderer->RenderHeight = RenderHeight;
 
     Renderer->PushedJobs = 0;
     Renderer->TextureInstanceDataAllocPosition = 0;
 
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 
 STN_INTERNAL void
 EndFrame(renderer *Renderer)
 {
-    matrix4 ViewProjection  = Matrix4Orthographic(0, WINDOW_WIDTH, WINDOW_HEIGHT, 0, -1.0f, 1.0f);
+    glViewport(0, 0, (GLsizei)Renderer->RenderWidth, (GLsizei)Renderer->RenderHeight);
+
+    matrix4 ViewProjection  = Matrix4Orthographic(0, Renderer->RenderWidth, Renderer->RenderHeight, 0, -1.0f, 1.0f);
 
     for (u32 Index = 0; Index < Renderer->PushedJobs; ++Index)
     {
