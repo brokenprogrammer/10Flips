@@ -87,6 +87,13 @@ StateGameUpdate(game_state *State)
 
     BeginFrame(&GlobalState->Renderer, GlobalState->RenderWidth, GlobalState->RenderHeight);
 
+    // NOTE(Oskar): Render background
+    {
+        vector4 Source = Vector4Init(0, 0, GlobalState->Background.Width, GlobalState->Background.Height);
+        vector4 Destination = Vector4Init(0, 0, GlobalState->RenderWidth, GlobalState->RenderHeight);
+        PushTexture(&GlobalState->Renderer, &GlobalState->Background, Source, Destination);
+    }
+
     if (State->YouWon)
     {
         vector4 Source = Vector4Init(0, 0, GlobalState->YourTurn.Width, GlobalState->YourTurn.Height);
