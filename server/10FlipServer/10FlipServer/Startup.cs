@@ -97,105 +97,100 @@ namespace _10FlipServer
 
                     Console.WriteLine($"client says: {msg}");
 
-                    if (msg == "lobby")
-                    {
-                        var message = GetGamesMessage();
-                        await SendToWebSocket(JsonConvert.SerializeObject(message), webSocket, result);
-                    }
-                    else if (msg.Contains("create:"))
-                    {
-                        var message = new Message();
-                        message.Type = MessageType.CREATE_GAME;
+                    PlayerAction action = PlayerAction.ParsePlayerAction(msg);
 
-                        string[] parts = msg.Split("create:");
-                        if (parts.Length == 2)
-                        {
-                            string name = parts[1];
-                            message.Data = await CreateNewGame(name, webSocket); // "{gameToken},{adminToken}"
-                        }
-
-                        await SendToWebSocket(JsonConvert.SerializeObject(message), webSocket, result);
-                    }
-                    else if (msg.Contains("connect:"))
+                    switch (action.Type)
                     {
-                        bool isConnected = games.Any(g => g.Value.Users.Any(u => u.Socket == webSocket));
-                        if (!isConnected)
-                        {
-                            var message = new Message();
-                            message.Type = MessageType.CONECT_TO_GAME;
-
-                            string[] parts = msg.Split("connect:");
-                            if (parts.Length == 2)
+                        case PlayerActionType.Lobby:
                             {
-                                string token = parts[1];
-                                string name = await ConnectToGame(token, webSocket);
-                                var game = games.GetValueOrDefault(token);
-                                message.Data = game.UserCount;
-
-                                foreach (User user in game.Users)
-                                {
-                                    await SendToWebSocket(JsonConvert.SerializeObject(message), user.Socket, result);
-                                }
-                            }
-                            else
-                            {
-                                message = GetGamesMessage();
+                                var message = GetGamesMessage();
                                 await SendToWebSocket(JsonConvert.SerializeObject(message), webSocket, result);
-                            }
-                         }
-                    }
-                    else if (msg.Contains("start:"))
-                    {
-                        var message = new Message();
-                        message.Type = MessageType.START_GAME;
-
-                        string[] parts = msg.Split("start:");
-                        if (parts.Length == 2)
-                        {
-                            string[] tokens = parts[1].Split(",");
-                            if (tokens.Length == 2)
+                                break; 
+                            } 
+                        case PlayerActionType.Create:
                             {
-                                await StartGame(tokens[0], tokens[1], result);
+                                var message  = await CreateNewGame(action.Arguments[0], webSocket);
+                                await SendToWebSocket(JsonConvert.SerializeObject(message), webSocket, result);
+                                break;   
                             }
-                        }
-
-                        message.Data = "";
-                        await SendToWebSocket(JsonConvert.SerializeObject(message), webSocket, result);
-                    }
-                    else if (msg.Contains("place:"))
-                    {
-                        string[] parts = msg.Split("place:");
-                        if (parts.Length == 2)
-                        {
-                            CardType card = (CardType) Int32.Parse(parts[1]);
-                            await PlaceCard(card, webSocket, result);
-                        }
-                    }
-                    else if (msg == "endturn")
-                    {
-                        Game game = games.Where(g => g.Value.Users.Any(u => u.Socket == webSocket)).FirstOrDefault().Value;
-                        User endingUser = game.Users.Where(u => u.Socket == webSocket).FirstOrDefault();
-                        int index = game.Users.IndexOf(endingUser);
-                        if (index == game.CurrentUser)
-                        {
-                            await EndTurn(webSocket, result);
-                        }
-                    }
-                    else if (msg == "pickup")
-                    {
-                        Game game = games.Where(g => g.Value.Users.Any(u => u.Socket == webSocket)).FirstOrDefault().Value;
-                        User placingUser = game.Users.Where(u => u.Socket == webSocket).FirstOrDefault();
-                        int index = game.Users.IndexOf(placingUser);
-                        if (index == game.CurrentUser)
-                        {
-                            while (game.PlacedCards.Count > 0)
+                        case PlayerActionType.Connect:
                             {
-                                var card = game.PlacedCards.Pop();
-                                placingUser.Hand.Add(card);
+                                bool isConnected = games.Any(g => g.Value.Users.Any(u => u.Socket == webSocket));
+                                if (!isConnected)
+                                {
+                                    var message = new Message();
+                                    message.Type = MessageType.CONECT_TO_GAME;
+                                    
+                                    if (action.Arguments.Length == 1)
+                                    {
+                                        string token = action.Arguments[0];
+                                        string name = await ConnectToGame(token, webSocket);
+                                        var game = games.GetValueOrDefault(token);
+                                        message.Data = game.UserCount;
+                                        foreach (User user in game.Users)
+                                        {
+                                            await SendToWebSocket(JsonConvert.SerializeObject(message), user.Socket, result);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        message = GetGamesMessage();
+                                        await SendToWebSocket(JsonConvert.SerializeObject(message), webSocket, result);
+                                    }
+                                }
+                                break;
                             }
-                            await UpdateGame(game, result);
-                        }
-                        await EndTurn(webSocket, result);
+                        case PlayerActionType.Start:
+                            {
+                                var message = new Message();
+                                message.Type = MessageType.START_GAME;
+                                if (action.Arguments.Length == 2)
+                                {
+                                    await StartGame(action.Arguments[0], action.Arguments[1], result);
+                                }
+                                message.Data = "";
+                                await SendToWebSocket(JsonConvert.SerializeObject(message), webSocket, result);
+                                break;
+                            }
+                        case PlayerActionType.Place:
+                            {
+                                if (action.Arguments.Length == 1)
+                                {
+                                    CardType card = (CardType)Int32.Parse(action.Arguments[0]);
+                                    await PlaceCard(card, webSocket, result);
+                                }
+                                break;
+                            }
+                        case PlayerActionType.EndTurn:
+                            {
+                                Game game = games.Where(g => g.Value.Users.Any(u => u.Socket == webSocket)).FirstOrDefault().Value;
+                                User endingUser = game.Users.Where(u => u.Socket == webSocket).FirstOrDefault();
+                                int index = game.Users.IndexOf(endingUser);
+                                if (index == game.CurrentUser)
+                                {
+                                    await EndTurn(webSocket, result);
+                                }
+                                break;
+                            }
+                        case PlayerActionType.PickUp:
+                            {
+                                Game game = games.Where(g => g.Value.Users.Any(u => u.Socket == webSocket)).FirstOrDefault().Value;
+                                User placingUser = game.Users.Where(u => u.Socket == webSocket).FirstOrDefault();
+                                int index = game.Users.IndexOf(placingUser);
+                                if (index == game.CurrentUser)
+                                {
+                                    while (game.PlacedCards.Count > 0)
+                                    {
+                                        var card = game.PlacedCards.Pop();
+                                        placingUser.Hand.Add(card);
+                                    }
+                                    await UpdateGame(game, result);
+                                }
+                                await EndTurn(webSocket, result);
+                                break;
+                            }
+                        default:
+                            break;
                     }
 
                     result = await webSocket.ReceiveAsync(new ArraySegment<byte>(buffer), System.Threading.CancellationToken.None);
@@ -305,10 +300,17 @@ namespace _10FlipServer
             return null;
         }
 
-        private async Task<dynamic> CreateNewGame(string name, WebSocket socket)
+        private async Task<Message> CreateNewGame(string name, WebSocket socket)
         {
+            if (name == null)
+            {
+                return null;
+            }
             if (games.Count < 25)
             {
+                var message = new Message();
+                message.Type = MessageType.CREATE_GAME;
+
                 string gameToken = Guid.NewGuid().ToString();
                 string adminToken = Guid.NewGuid().ToString();
 
@@ -323,7 +325,8 @@ namespace _10FlipServer
                 dynamic o = new ExpandoObject();
                 o.id = gameToken;
                 o.adminToken = adminToken;
-                return o;
+                message.Data = o;
+                return message;
             }
             return null;
         }
