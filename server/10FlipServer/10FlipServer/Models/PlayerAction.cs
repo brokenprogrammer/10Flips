@@ -14,7 +14,7 @@ namespace _10FlipServer.Models
 
         public PlayerAction()
         {
-            Arguments = new string[0];
+            Arguments = new string[2];
         }
 
         public static PlayerAction ParsePlayerAction(string value)

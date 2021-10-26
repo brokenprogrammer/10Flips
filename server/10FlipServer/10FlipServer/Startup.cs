@@ -109,13 +109,7 @@ namespace _10FlipServer
                             } 
                         case PlayerActionType.Create:
                             {
-                                var message = new Message();
-                                message.Type = MessageType.CREATE_GAME;
-                                if (action.Arguments.Length == 1)
-                                {
-                                    string name = action.Arguments[0];
-                                    message.Data = await CreateNewGame(name, webSocket);
-                                }
+                                var message  = await CreateNewGame(action.Arguments[0], webSocket);
                                 await SendToWebSocket(JsonConvert.SerializeObject(message), webSocket, result);
                                 break;   
                             }
@@ -126,6 +120,7 @@ namespace _10FlipServer
                                 {
                                     var message = new Message();
                                     message.Type = MessageType.CONECT_TO_GAME;
+                                    
                                     if (action.Arguments.Length == 1)
                                     {
                                         string token = action.Arguments[0];
@@ -305,10 +300,17 @@ namespace _10FlipServer
             return null;
         }
 
-        private async Task<dynamic> CreateNewGame(string name, WebSocket socket)
+        private async Task<Message> CreateNewGame(string name, WebSocket socket)
         {
+            if (name == null)
+            {
+                return null;
+            }
             if (games.Count < 25)
             {
+                var message = new Message();
+                message.Type = MessageType.CREATE_GAME;
+
                 string gameToken = Guid.NewGuid().ToString();
                 string adminToken = Guid.NewGuid().ToString();
 
@@ -323,7 +325,8 @@ namespace _10FlipServer
                 dynamic o = new ExpandoObject();
                 o.id = gameToken;
                 o.adminToken = adminToken;
-                return o;
+                message.Data = o;
+                return message;
             }
             return null;
         }
